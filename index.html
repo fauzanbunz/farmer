@@ -198,7 +198,8 @@
       river: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sungai.png',
       cowIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi.png',
       cowWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi%20walk.png',
-      milk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/kotak.png'
+      milk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/kotak.png',
+      skull: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/skull.png'
     };
     const IMAGES = {};
 
@@ -331,7 +332,9 @@
         hunger: 1.0,
         lastProd: performance.now(),
         hop: 0,
-        id: Math.random()
+        id: Math.random(),
+        isDead: false,
+        deathTime: 0
       });
     }
 
@@ -381,7 +384,8 @@
     }
 
     function feedAll() {
-      const hungryAnimals = state.animals.filter(a => a.hunger < 0.9);
+      // Hanya hewan yang lapar dan masih HIDUP yang bisa diberi makan
+      const hungryAnimals = state.animals.filter(a => a.hunger < 0.9 && !a.isDead);
       if (hungryAnimals.length === 0) return notify("Semua hewan sudah kenyang!");
       
       const feedNeeded = hungryAnimals.length;
@@ -477,13 +481,12 @@
       const p6 = isoToScreen(x + w, y + l, z);
       const p7 = isoToScreen(x + w, y, z);
 
-      if (z > 4) {
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.beginPath();
-        const s0 = isoToScreen(x,y,5); const s1 = isoToScreen(x+w,y,5); const s2 = isoToScreen(x+w,y+l,5); const s3 = isoToScreen(x,y+l,5);
-        ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.lineTo(s3.x, s3.y);
-        ctx.fill();
-      }
+      // Shadow selalu dirender di atas tanah (z = 0)
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath();
+      const s0 = isoToScreen(x,y,0); const s1 = isoToScreen(x+w,y,0); const s2 = isoToScreen(x+w,y+l,0); const s3 = isoToScreen(x,y+l,0);
+      ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.lineTo(s3.x, s3.y);
+      ctx.fill();
 
       ctx.fillStyle = colors.top;
       ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.fill();
@@ -565,36 +568,50 @@
 
       // Animals
       state.animals.forEach(a => {
-        const dx = a.targetX - a.x, dy = a.targetY - a.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        if (dist < 0.1) {
-          if (time > a.idleUntil) {
-            // Batasi koordinat target jalan agar tidak menembus barn (Barn berada di area 0 - 3)
-            a.targetX = Math.random() * 4 + 3.5;
-            a.targetY = Math.random() * 4 + 3.5;
-            // Perlama waktu idle (diam) sapi menjadi 5 hingga 13 detik
-            a.idleUntil = time + 5000 + Math.random() * 8000;
+        // Logika jalan dan produksi hanya berlaku jika hewan MASIH HIDUP
+        if (!a.isDead) {
+          const dx = a.targetX - a.x, dy = a.targetY - a.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          
+          if (dist < 0.1) {
+            if (time > a.idleUntil) {
+              // Batasi koordinat target jalan agar tidak menembus barn (Barn berada di area 0 - 3)
+              a.targetX = Math.random() * 4 + 3.5;
+              a.targetY = Math.random() * 4 + 3.5;
+              // Perlama waktu idle (diam) sapi menjadi 5 hingga 13 detik
+              a.idleUntil = time + 5000 + Math.random() * 8000;
+            } else {
+              a.x = a.targetX;
+              a.y = a.targetY;
+            }
           } else {
-            a.x = a.targetX;
-            a.y = a.targetY;
+            // Kurangi sedikit kecepatan jalan sapi agar lebih santai
+            a.x += (dx/dist) * 0.008;
+            a.y += (dy/dist) * 0.008;
           }
-        } else {
-          // Kurangi sedikit kecepatan jalan sapi agar lebih santai
-          a.x += (dx/dist) * 0.008;
-          a.y += (dy/dist) * 0.008;
-        }
-        
-        a.hop = (dist >= 0.1) ? Math.abs(Math.sin(time/200)) * 0.2 : 0;
-        a.hunger = Math.max(0, a.hunger - 0.00005 * dt);
+          
+          a.hop = (dist >= 0.1) ? Math.abs(Math.sin(time/200)) * 0.2 : 0;
+          // Mengubah durasi kelaparan menjadi 5 menit (300.000 ms) dari 1.0 ke 0.0
+          a.hunger = Math.max(0, a.hunger - (dt / 300000));
 
-        if (a.hunger > 0 && time - a.lastProd > ITEMS[a.type].rate) {
-          a.lastProd = time;
-          state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, z: 5, bounce: 0, id: Math.random() });
+          // Cek Kematian karena kelaparan
+          if (a.hunger <= 0) {
+            a.isDead = true;
+            a.deathTime = time;
+            notify(`Seekor ${ITEMS[a.type].label} mati kelaparan!`, 'error');
+          } 
+          // Cek Produksi
+          else if (time - a.lastProd > ITEMS[a.type].rate) {
+            a.lastProd = time;
+            state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, z: 5, bounce: 0, id: Math.random() });
+          }
         }
 
         renderList.push({ type: 'animal', data: a, depth: a.x + a.y });
       });
+
+      // Hapus bangkai dari state jika sudah lewat 65 detik (60 detik menunggu + 5 detik animasi pudar)
+      state.animals = state.animals.filter(a => !(a.isDead && time - a.deathTime > 65000));
 
       // Drops
       state.drops.forEach(d => {
@@ -614,43 +631,90 @@
         }
         else if (obj.type === 'animal') {
           const a = obj.data;
-          const screen = isoToScreen(a.x, a.y, a.hop * 10);
           
-          if (a.type === 'cow' && IMAGES.cowIdle && IMAGES.cowWalk) {
-            const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
-            const frames = isMoving ? 2 : 4;
-            const frameIdx = Math.floor(time / 200) % frames;
-            const img = isMoving ? IMAGES.cowWalk : IMAGES.cowIdle;
+          if (a.isDead) {
+            // RENDERING BANGKAI (SKULL)
+            const timeDead = time - a.deathTime;
+            let alpha = 1.0;
+            
+            // Animasi memudar perlahan (fade out) di 5 detik terakhir sebelum 65 detik (antara ms 60000 ke 65000)
+            if (timeDead > 60000) {
+              alpha = Math.max(0, 1.0 - ((timeDead - 60000) / 5000));
+            }
             
             ctx.save();
-            if (a.targetX > a.x) { 
-              ctx.translate(screen.x, screen.y);
-              ctx.scale(-1, 1);
-              ctx.drawImage(img, frameIdx * 500, 0, 500, 500, -40, -60, 80, 80);
-            } else {
-              ctx.drawImage(img, frameIdx * 500, 0, 500, 500, screen.x - 40, screen.y - 60, 80, 80);
-            }
-            ctx.restore();
+            ctx.globalAlpha = alpha; // Set transparansi untuk memudar
             
-          } else {
-            const sz = a.type === 'chicken' ? 0.4 : 0.7;
-            drawCube(a.x - sz/2, a.y - sz/2, 5 + a.hop, sz, sz, sz, { top: ITEMS[a.type].color, left: '#ccc', right: '#bbb' });
-          }
+            const screenGround = isoToScreen(a.x, a.y, 0);
+            
+            // Bayangan bangkai tetap ada
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(screenGround.x, screenGround.y, 22, 11, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Gambar Tengkorak
+            if (IMAGES.skull) {
+              ctx.drawImage(IMAGES.skull, screenGround.x - 20, screenGround.y - 30, 40, 40);
+            }
+            
+            ctx.restore();
 
-          ctx.fillStyle = 'rgba(0,0,0,0.3)';
-          ctx.fillRect(screen.x - 10, screen.y - 40, 20, 3);
-          ctx.fillStyle = a.hunger > 0.3 ? '#22c55e' : '#ef4444';
-          ctx.fillRect(screen.x - 10, screen.y - 40, 20 * a.hunger, 3);
+          } else {
+            // RENDERING HEWAN HIDUP
+            const screen = isoToScreen(a.x, a.y, a.hop * 10);
+            
+            if (a.type === 'cow' && IMAGES.cowIdle && IMAGES.cowWalk) {
+              // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah sapi
+              const screenGround = isoToScreen(a.x, a.y, 0);
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+              ctx.beginPath();
+              ctx.ellipse(screenGround.x, screenGround.y, 22, 11, 0, 0, Math.PI * 2);
+              ctx.fill();
+
+              const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
+              const frames = isMoving ? 2 : 4;
+              const frameIdx = Math.floor(time / 200) % frames;
+              const img = isMoving ? IMAGES.cowWalk : IMAGES.cowIdle;
+              
+              ctx.save();
+              if (a.targetX > a.x) { 
+                ctx.translate(screen.x, screen.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(img, frameIdx * 500, 0, 500, 500, -40, -60, 80, 80);
+              } else {
+                ctx.drawImage(img, frameIdx * 500, 0, 500, 500, screen.x - 40, screen.y - 60, 80, 80);
+              }
+              ctx.restore();
+              
+            } else {
+              const sz = a.type === 'chicken' ? 0.4 : 0.7;
+              drawCube(a.x - sz/2, a.y - sz/2, a.hop * 10, sz, sz, sz, { top: ITEMS[a.type].color, left: '#ccc', right: '#bbb' });
+            }
+
+            // Render Bar Kelaparan hanya saat hewan hidup
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(screen.x - 10, screen.y - 40, 20, 3);
+            ctx.fillStyle = a.hunger > 0.3 ? '#22c55e' : '#ef4444';
+            ctx.fillRect(screen.x - 10, screen.y - 40, 20 * a.hunger, 3);
+          }
           
         } else if (obj.type === 'drop') {
           const d = obj.data;
           const screen = isoToScreen(d.x, d.y, d.bounce * 5); 
           
           if (d.type === 'milk' && IMAGES.milk) {
+            // Tambahkan bayangan bentuk oval isometrik di bawah barang (susu)
+            const screenGround = isoToScreen(d.x, d.y, 0);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.ellipse(screenGround.x, screenGround.y, 12, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
             ctx.drawImage(IMAGES.milk, screen.x - 15, screen.y - 20, 30, 30);
           } else {
             const color = d.type === 'egg' ? { top: '#fff', left: '#eee', right: '#ddd' } : { top: '#f1f5f9', left: '#e2e8f0', right: '#cbd5e1' };
-            drawCube(d.x - 0.2, d.y - 0.2, 5 + d.bounce, 0.4, 0.4, 0.4, color);
+            drawCube(d.x - 0.2, d.y - 0.2, d.bounce * 5, 0.4, 0.4, 0.4, color);
           }
         }
       });
