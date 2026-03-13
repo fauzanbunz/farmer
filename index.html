@@ -3,541 +3,686 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Farm Game Isometric</title>
-  
-  <!-- Tailwind CSS -->
+  <title>Isometric Farm Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    /* Animasi untuk teks yang melayang (floating text) */
-    @keyframes bounce-up {
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+    
+    body {
+      font-family: 'Fredoka', sans-serif;
+      background-color: #87ceeb;
+      transition: background-color 2s ease;
+    }
+
+    .night-mode {
+      background-color: #1e293b !important;
+    }
+
+    @keyframes float-up {
       0% { transform: translateY(0); opacity: 1; }
-      100% { transform: translateY(-50px); opacity: 0; }
+      100% { transform: translateY(-60px); opacity: 0; }
     }
-    .floating-text {
-      animation: bounce-up 1.5s ease-out forwards;
-      text-shadow: 0px 2px 4px rgba(0,0,0,0.5);
+    
+    .float-msg {
+      animation: float-up 1.2s ease-out forwards;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
-    /* Memastikan tombol disabled terlihat berbeda */
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
+
+    .ui-panel {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 3px solid #e2e8f0;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+    }
+
+    /* Animasi Pop-up */
+    @keyframes pop-in {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .modal-content {
+      animation: pop-in 0.2s ease-out forwards;
     }
   </style>
 </head>
-<body class="relative w-full h-screen overflow-hidden font-sans select-none bg-blue-100">
-  
-  <!-- Canvas Layer -->
-  <canvas id="gameCanvas" class="absolute inset-0 cursor-pointer"></canvas>
+<body class="relative w-full h-screen overflow-hidden select-none">
 
-  <!-- Floating Texts Container -->
-  <div id="floating-texts-container" class="absolute inset-0 pointer-events-none z-50"></div>
+  <!-- Game Canvas -->
+  <canvas id="gameCanvas" class="absolute inset-0 cursor-crosshair"></canvas>
 
-  <!-- Top UI Layer -->
-  <div class="absolute inset-0 pointer-events-none z-10">
+  <!-- Notification System -->
+  <div id="toast-container" class="absolute top-24 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- UI Navbar (All at Top) -->
+  <div class="absolute top-0 left-0 w-full pointer-events-none z-10 p-4 flex flex-wrap md:flex-nowrap justify-between items-start gap-4">
     
-    <!-- Top Left: Profile Info -->
-    <div class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-auto">
-      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg flex items-center gap-4">
-        <div class="bg-orange-200 w-12 h-12 rounded-full flex items-center justify-center border-2 border-orange-400">
-          <span class="text-2xl">👨‍🌾</span>
-        </div>
-        <div>
-          <h1 class="font-bold text-gray-800 text-lg leading-tight">Master Farmer</h1>
-          <p class="text-xs text-gray-500 font-semibold">Main Farm</p>
-          <div class="mt-1 w-full bg-gray-200 rounded-full h-2">
-            <div class="bg-green-500 h-2 rounded-full" style="width: 45%"></div>
-          </div>
-        </div>
+    <!-- Top Left: Profile & XP -->
+    <div class="pointer-events-auto ui-panel rounded-2xl p-2.5 shadow-lg flex items-center gap-3 w-full md:w-auto">
+      <div class="relative">
+        <div class="bg-amber-100 w-12 h-12 rounded-xl flex items-center justify-center border-2 border-amber-400 text-2xl shadow-sm">👨‍🌾</div>
+        <div id="level-badge" class="absolute -bottom-1 -right-2 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white">LV 1</div>
       </div>
-
-      <!-- Inventory Balance -->
-      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg w-56">
-        <h2 class="text-xs font-bold text-gray-400 mb-2 tracking-wider">INVENTORY</h2>
-        <div class="flex flex-col gap-2">
-          <div class="flex justify-between items-center bg-blue-100 rounded-lg p-2 border border-blue-200">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">🍼</span>
-              <span class="font-semibold text-gray-700">Milk</span>
-            </div>
-            <span id="milk-display" class="font-bold text-gray-800">0</span>
-          </div>
-          <div class="flex justify-between items-center bg-orange-100 rounded-lg p-2 border border-orange-200">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">🥚</span>
-              <span class="font-semibold text-gray-700">Egg</span>
-            </div>
-            <span id="egg-display" class="font-bold text-gray-800">0</span>
-          </div>
+      <div class="w-32">
+        <h1 id="player-title" class="font-bold text-slate-800 text-sm truncate">Peternak Pemula</h1>
+        <div class="mt-1 w-full bg-slate-200 rounded-full h-2 overflow-hidden shadow-inner">
+          <div id="xp-bar" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
         </div>
-      </div>
-      
-      <div class="bg-white/80 p-2 rounded-lg text-xs font-medium text-gray-600 shadow max-w-[220px]">
-        <i data-lucide="info" class="w-3.5 h-3.5 inline mr-1 text-blue-500"></i>
-        Tip: Animals will drop produce on the grass. Click the items to collect them into your inventory.
+        <p class="text-[9px] text-slate-500 mt-0.5 font-bold"><span id="xp-text">0/100</span> XP</p>
       </div>
     </div>
 
-    <!-- Top Right: Wallet -->
-    <div class="absolute top-4 right-4 pointer-events-auto">
-      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg flex items-center gap-3">
-        <div class="bg-yellow-100 p-2 rounded-xl">
-          <i data-lucide="coins" class="w-6 h-6 text-yellow-500 drop-shadow-sm"></i>
+    <!-- Top Center: Menu Action Buttons -->
+    <div class="pointer-events-auto flex gap-2 w-full md:w-auto justify-center">
+      <button onclick="openModal('shop-modal')" class="ui-panel hover:bg-white text-blue-600 font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
+        <i data-lucide="store" class="w-5 h-5"></i> <span class="hidden sm:inline">Shop</span>
+      </button>
+      <button onclick="openModal('market-modal')" class="ui-panel hover:bg-white text-amber-600 font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
+        <i data-lucide="badge-dollar-sign" class="w-5 h-5"></i> <span class="hidden sm:inline">Market</span>
+      </button>
+      <button onclick="openModal('storage-modal')" class="ui-panel hover:bg-white text-slate-600 font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
+        <i data-lucide="package" class="w-5 h-5"></i> <span class="hidden sm:inline">Storage</span>
+      </button>
+    </div>
+
+    <!-- Top Right: Currencies & Feed -->
+    <div class="pointer-events-auto flex gap-2 w-full md:w-auto justify-end">
+      <!-- Feed UI -->
+      <div class="ui-panel rounded-2xl py-1 px-3 shadow-lg flex items-center gap-2">
+        <span class="text-xl">🌾</span>
+        <div class="text-center">
+          <p class="text-[9px] font-bold text-slate-400 uppercase leading-none">Pakan</p>
+          <p class="font-bold text-slate-800 leading-tight"><span id="feed-count">10</span></p>
         </div>
+        <button onclick="feedAll()" class="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-transform active:scale-90 ml-1 shadow" title="Beri Makan Semua">
+          <i data-lucide="heart" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Wallet UI -->
+      <div class="ui-panel rounded-2xl py-1 px-4 shadow-lg flex items-center gap-2">
+        <i data-lucide="coins" class="w-6 h-6 text-yellow-500 drop-shadow-sm"></i>
         <div>
-          <h2 class="text-xs font-bold text-gray-400 tracking-wider">WALLET (COINS)</h2>
-          <p id="coins-display" class="font-black text-2xl text-gray-800 tracking-tight">200</p>
+          <p class="text-[9px] font-bold text-slate-400 uppercase leading-none">Koin</p>
+          <p id="coin-count" class="text-lg font-black text-slate-800 leading-tight">500</p>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Bottom Right: Actions Menu -->
-    <div class="absolute bottom-4 right-4 pointer-events-auto">
-      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] w-64 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-        
-        <!-- Tabs -->
-        <div class="flex border-b-2 border-[#e6d5b8]">
-          <button id="tab-shop-btn" class="flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-[#f4e6cd] text-gray-800" onclick="switchTab('shop')">
-            <i data-lucide="store" class="w-4 h-4"></i> Shop
-          </button>
-          <button id="tab-market-btn" class="flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-transparent text-gray-500 hover:bg-gray-50" onclick="switchTab('market')">
-            <i data-lucide="shopping-cart" class="w-4 h-4"></i> Market
-          </button>
+  <!-- MODALS CONTAINER -->
+  <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center pointer-events-auto opacity-0 transition-opacity duration-300">
+    
+    <!-- SHOP MODAL -->
+    <div id="shop-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
+      <div class="bg-blue-500 p-4 flex justify-between items-center text-white">
+        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="store"></i> Beli Hewan Ternak</h2>
+        <button onclick="closeModal()" class="hover:bg-white/20 p-1 rounded-full"><i data-lucide="x"></i></button>
+      </div>
+      <div id="shop-content" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- MARKET MODAL -->
+    <div id="market-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
+      <div class="bg-amber-500 p-4 flex justify-between items-center text-white">
+        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="badge-dollar-sign"></i> Pasar (Jual Hasil)</h2>
+        <button onclick="closeModal()" class="hover:bg-white/20 p-1 rounded-full"><i data-lucide="x"></i></button>
+      </div>
+      <div id="market-content" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- STORAGE MODAL -->
+    <div id="storage-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
+      <div class="bg-slate-600 p-4 flex justify-between items-center text-white">
+        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="package"></i> Gudang Penyimpanan</h2>
+        <button onclick="closeModal()" class="hover:bg-white/20 p-1 rounded-full"><i data-lucide="x"></i></button>
+      </div>
+      <div class="p-4 grid grid-cols-3 gap-3">
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center flex flex-col items-center">
+          <span class="text-3xl mb-1">🍼</span>
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Susu</span>
+          <span id="store-milk" class="text-lg font-black text-slate-700">0</span>
         </div>
-
-        <!-- Content Tab -->
-        <div class="p-4 flex flex-col gap-3 h-[280px] overflow-y-auto">
-          
-          <!-- SHOP CONTENT -->
-          <div id="shop-content" style="display: block;">
-            <p class="text-xs text-center text-gray-500 mb-1 font-medium">Buy animals to raise</p>
-            
-            <!-- Shop Item: Chicken -->
-            <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center hover:border-orange-300 transition-colors mb-3">
-              <div class="flex items-center gap-3">
-                <div class="bg-orange-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🐔</div>
-                <div>
-                  <p class="font-bold text-gray-800">Chicken</p>
-                  <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="coins" class="w-2.5 h-2.5 text-yellow-500"></i> 50</p>
-                </div>
-              </div>
-              <button onclick="buyAnimal('chicken')" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-transform">
-                <i data-lucide="plus" class="w-4.5 h-4.5"></i>
-              </button>
-            </div>
-
-            <!-- Shop Item: Cow -->
-            <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center hover:border-orange-300 transition-colors">
-              <div class="flex items-center gap-3">
-                <div class="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🐄</div>
-                <div>
-                  <p class="font-bold text-gray-800">Cow</p>
-                  <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="coins" class="w-2.5 h-2.5 text-yellow-500"></i> 150</p>
-                </div>
-              </div>
-              <button onclick="buyAnimal('cow')" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-transform">
-                <i data-lucide="plus" class="w-4.5 h-4.5"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- MARKET CONTENT -->
-          <div id="market-content" style="display: none;">
-             <p class="text-xs text-center text-gray-500 mb-1 font-medium">Sell inventory items for coins</p>
-             
-             <!-- Market Item: Egg -->
-             <div id="sell-egg-container" class="bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60 mb-3">
-              <div class="flex items-center gap-3">
-                <div class="bg-orange-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🥚</div>
-                <div>
-                  <p class="font-bold text-gray-800">Sell Egg</p>
-                  <p class="text-xs text-gray-500">Price: <span class="text-yellow-600 font-bold">+10</span></p>
-                </div>
-              </div>
-              <button id="sell-egg-btn" onclick="sellItem('egg')" disabled class="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-transform">
-                Sell
-              </button>
-            </div>
-
-            <!-- Market Item: Milk -->
-            <div id="sell-milk-container" class="bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60">
-              <div class="flex items-center gap-3">
-                <div class="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🍼</div>
-                <div>
-                  <p class="font-bold text-gray-800">Sell Milk</p>
-                  <p class="text-xs text-gray-500">Price: <span class="text-yellow-600 font-bold">+30</span></p>
-                </div>
-              </div>
-              <button id="sell-milk-btn" onclick="sellItem('milk')" disabled class="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-transform">
-                Sell
-              </button>
-            </div>
-          </div>
-
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center flex flex-col items-center">
+          <span class="text-3xl mb-1">🥚</span>
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Telur</span>
+          <span id="store-egg" class="text-lg font-black text-slate-700">0</span>
         </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center flex flex-col items-center">
+          <span class="text-3xl mb-1">🧶</span>
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Wol</span>
+          <span id="store-wool" class="text-lg font-black text-slate-700">0</span>
+        </div>
+      </div>
+      <div class="p-4 pt-0 border-t border-slate-100 mt-2">
+        <button onclick="buyFeed()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
+          <i data-lucide="shopping-cart" class="w-4 h-4"></i> Beli Pakan (5 Koin / 5 Unit)
+        </button>
       </div>
     </div>
 
   </div>
 
   <script>
-    // Inisialisasi ikon Lucide
-    lucide.createIcons();
+    // --- Configuration & Assets ---
+    const TILE_W = 64, TILE_H = 32, GRID = 8;
 
-    // --- GAME CONSTANTS ---
-    const TILE_W = 64;
-    const TILE_H = 32;
-    const GRID_SIZE = 8;
-    const FPS = 60;
-
-    const PRICES = {
-      chicken: { cost: 50, name: 'Chicken' },
-      cow: { cost: 150, name: 'Cow' },
-      egg: { sell: 10, name: 'Egg' },
-      milk: { sell: 30, name: 'Milk' }
+    const ITEMS = {
+      chicken: { price: 100, prod: 'egg', rate: 10000, color: '#ffffff', label: 'Ayam' },
+      cow: { price: 250, prod: 'milk', rate: 20000, color: '#f3f4f6', label: 'Sapi' },
+      sheep: { price: 400, prod: 'wool', rate: 30000, color: '#e5e7eb', label: 'Domba' }
     };
 
-    const TIMERS = {
-      chicken: 8000, // 8 seconds to produce an egg
-      cow: 15000 // 15 seconds to produce milk
+    const MARKET = {
+      egg: 15, milk: 40, wool: 100, feed: 5
     };
 
-    // --- GAME STATE ---
-    let coins = 200;
-    let inventory = { egg: 0, milk: 0 };
-    
-    const gameState = {
+    const TITLES = [
+      "Peternak Pemula", "Peternak Magang", "Pekerja Keras", 
+      "Peternak Ahli", "Juragan Muda", "Juragan Ternak", 
+      "Sultan Ladang", "Dewa Pertanian"
+    ];
+
+    // Asset Gambar dari GitHub
+    const ASSETS = {
+      barn: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/barn.png',
+      grass: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/grasskecil.png',
+      river: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sungai.png',
+      cowIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi.png',
+      cowWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi%20walk.png',
+      milk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/kotak.png'
+    };
+    const IMAGES = {};
+
+    // --- State Management ---
+    const state = {
+      coins: 500,
+      xp: 0,
+      level: 1,
+      feed: 10,
+      inventory: { egg: 0, milk: 0, wool: 0 },
       animals: [],
       drops: [],
-      particles: [],
-      lastTime: performance.now(),
-      clouds: [
-        { x: 100, y: 150, speed: 0.3, size: 40, opacity: 0.8 },
-        { x: 500, y: 100, speed: 0.2, size: 60, opacity: 0.6 },
-        { x: 900, y: 200, speed: 0.4, size: 35, opacity: 0.7 },
-        { x: -200, y: 80, speed: 0.15, size: 50, opacity: 0.5 }
-      ]
+      clouds: [],
+      stars: [],
+      lastTime: 0,
+      timeOfDay: 0 // 0 to 1
     };
 
-    // --- UI HELPERS ---
-    function updateUI() {
-      document.getElementById('coins-display').innerText = coins;
-      document.getElementById('milk-display').innerText = inventory.milk;
-      document.getElementById('egg-display').innerText = inventory.egg;
+    // --- Initialization ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-      // Update Market UI styling based on inventory
-      const eggBtn = document.getElementById('sell-egg-btn');
-      const eggContainer = document.getElementById('sell-egg-container');
-      if (inventory.egg > 0) {
-        eggBtn.disabled = false;
-        eggContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-orange-300 mb-3";
-      } else {
-        eggBtn.disabled = true;
-        eggContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60 mb-3";
-      }
-
-      const milkBtn = document.getElementById('sell-milk-btn');
-      const milkContainer = document.getElementById('sell-milk-container');
-      if (inventory.milk > 0) {
-        milkBtn.disabled = false;
-        milkContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-blue-300";
-      } else {
-        milkBtn.disabled = true;
-        milkContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60";
-      }
-    }
-
-    function switchTab(tab) {
-      if (tab === 'shop') {
-        document.getElementById('shop-content').style.display = 'block';
-        document.getElementById('market-content').style.display = 'none';
-        document.getElementById('tab-shop-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-[#f4e6cd] text-gray-800";
-        document.getElementById('tab-market-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-transparent text-gray-500 hover:bg-gray-50";
-      } else {
-        document.getElementById('shop-content').style.display = 'none';
-        document.getElementById('market-content').style.display = 'block';
-        document.getElementById('tab-shop-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-transparent text-gray-500 hover:bg-gray-50";
-        document.getElementById('tab-market-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-[#f4e6cd] text-gray-800";
-      }
-    }
-
-    function showFloatingText(text, x, y, color = '#22c55e') {
-      const container = document.getElementById('floating-texts-container');
-      const el = document.createElement('div');
-      el.className = 'absolute font-bold text-xl pointer-events-none drop-shadow-md floating-text';
-      el.style.left = `${x}px`;
-      el.style.top = `${y - 40}px`;
-      el.style.color = color;
-      el.innerText = text;
-      container.appendChild(el);
-      
-      setTimeout(() => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      }, 1500);
-    }
-
-    // --- BUY & SELL LOGIC ---
-    window.buyAnimal = function(type) {
-      if (coins >= PRICES[type].cost) {
-        coins -= PRICES[type].cost;
-        updateUI();
-        
-        let startX = Math.random() * (GRID_SIZE - 2) + 1;
-        let startY = Math.random() * (GRID_SIZE - 2) + 1;
-        while (startX < 3 && startY < 3) {
-          startX = Math.random() * (GRID_SIZE - 2) + 1;
-          startY = Math.random() * (GRID_SIZE - 2) + 1;
-        }
-
-        const newAnimal = {
-          id: Math.random().toString(),
-          type: type,
-          x: startX,
-          y: startY,
-          targetX: startX,
-          targetY: startY,
-          speed: type === 'chicken' ? 0.02 : 0.01,
-          lastProduce: performance.now(),
-          zOffset: 0,
-          hopPhase: 0
-        };
-        gameState.animals.push(newAnimal);
-        showFloatingText(`- ${PRICES[type].cost} Coins`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
-      } else {
-        alert("Not enough coins!");
-      }
-    };
-
-    window.sellItem = function(item) {
-      if (inventory[item] > 0) {
-        inventory[item] -= 1;
-        coins += PRICES[item].sell;
-        updateUI();
-        showFloatingText(`+ ${PRICES[item].sell} Coins`, window.innerWidth - 200, 100, '#eab308');
-      }
-    };
-
-    // --- ISOMETRIC HELPERS ---
-    const isoToScreen = (isoX, isoY, isoZ, offsetX, offsetY) => {
-      const screenX = (isoX - isoY) * (TILE_W / 2) + offsetX;
-      const screenY = (isoX + isoY) * (TILE_H / 2) - isoZ + offsetY;
-      return { x: screenX, y: screenY };
-    };
-
-    const drawBlock = (ctx, x, y, z, w, l, h, offsetX, offsetY, colors) => {
-      const p0 = isoToScreen(x, y, z + h, offsetX, offsetY);
-      const p1 = isoToScreen(x + w, y, z + h, offsetX, offsetY);
-      const p2 = isoToScreen(x + w, y + l, z + h, offsetX, offsetY);
-      const p3 = isoToScreen(x, y + l, z + h, offsetX, offsetY);
-      
-      const p4 = isoToScreen(x, y + l, z, offsetX, offsetY);
-      const p5 = isoToScreen(x + w, y + l, z, offsetX, offsetY);
-      const p6 = isoToScreen(x + w, y, z, offsetX, offsetY);
-
-      // Top Face
-      ctx.fillStyle = colors.top;
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
-      ctx.closePath(); ctx.fill();
-
-      // Left Face
-      ctx.fillStyle = colors.left;
-      ctx.beginPath();
-      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p5.x, p5.y); ctx.lineTo(p4.x, p4.y);
-      ctx.closePath(); ctx.fill();
-
-      // Right Face
-      ctx.fillStyle = colors.right;
-      ctx.beginPath();
-      ctx.moveTo(p2.x, p2.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p6.x, p6.y); ctx.lineTo(p5.x, p5.y);
-      ctx.closePath(); ctx.fill();
-    };
-
-    // --- GAME LOOP ---
-    window.onload = () => {
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      
-      const resize = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      };
+    function init() {
+      lucide.createIcons();
       window.addEventListener('resize', resize);
       resize();
+      
+      // Setup Clouds & Stars
+      generateEnvironment();
 
-      // Canvas Click Interaction
-      canvas.addEventListener('click', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        const offsetX = canvas.width / 2;
-        const offsetY = canvas.height / 2 - (GRID_SIZE * TILE_H) / 2 + 100;
-
-        const newDrops = [];
-        let collectedSomething = false;
-
-        for (let i = 0; i < gameState.drops.length; i++) {
-          const drop = gameState.drops[i];
-          const dropScreenPos = isoToScreen(drop.x, drop.y, 5, offsetX, offsetY);
-          const dist = Math.sqrt(Math.pow(mouseX - dropScreenPos.x, 2) + Math.pow(mouseY - dropScreenPos.y, 2));
-          
-          if (dist < 30 && !collectedSomething) {
-            collectedSomething = true;
-            inventory[drop.type] += 1;
-            updateUI();
-            showFloatingText(`+1 ${PRICES[drop.type].name}`, mouseX, mouseY, '#3b82f6');
-          } else {
-            newDrops.push(drop);
-          }
-        }
-        gameState.drops = newDrops;
+      // Load Images
+      let loaded = 0;
+      const keys = Object.keys(ASSETS);
+      keys.forEach(key => {
+        IMAGES[key] = new Image();
+        IMAGES[key].onload = () => {
+          loaded++;
+          if (loaded === keys.length) startGame();
+        };
+        IMAGES[key].onerror = () => {
+          loaded++;
+          if (loaded === keys.length) startGame();
+        };
+        IMAGES[key].src = ASSETS[key];
       });
+    }
 
-      // Render Loop
-      const render = (time) => {
-        const deltaTime = time - gameState.lastTime;
-        gameState.lastTime = time;
+    function startGame() {
+      // Ubah posisi awal spawn sapi agar lebih ke tengah (menjauhi barn)
+      spawnAnimal('cow', 5, 5); 
+      updateUI();
+      requestAnimationFrame(gameLoop);
+    }
 
-        ctx.fillStyle = '#cbe4f9';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    function generateEnvironment() {
+      state.clouds = [];
+      for(let i=0; i<6; i++) {
+        state.clouds.push({
+          x: Math.random() * window.innerWidth,
+          y: 20 + Math.random() * 200,
+          scale: 0.5 + Math.random() * 0.8,
+          speed: 0.1 + Math.random() * 0.3
+        });
+      }
+      state.stars = [];
+      for(let i=0; i<150; i++) {
+        state.stars.push({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * (window.innerHeight * 0.6), // Bintang kebanyakan di paruh atas
+          size: Math.random() * 1.5,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.001 + Math.random() * 0.003
+        });
+      }
+    }
 
-        gameState.clouds.forEach(c => {
-          c.x += c.speed;
-          if (c.x > canvas.width + 200) c.x = -200;
-          ctx.fillStyle = `rgba(255, 255, 255, ${c.opacity})`;
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      generateEnvironment(); // Regenerate environment on resize to fit new width
+    }
+
+    // --- Modal & UI Logic ---
+    function openModal(id) {
+      updateUI(); // Refresh content
+      const backdrop = document.getElementById('modal-backdrop');
+      backdrop.classList.remove('hidden');
+      setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+      
+      ['shop-modal', 'market-modal', 'storage-modal'].forEach(m => document.getElementById(m).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal() {
+      const backdrop = document.getElementById('modal-backdrop');
+      backdrop.classList.add('opacity-0');
+      setTimeout(() => backdrop.classList.add('hidden'), 300);
+    }
+
+    function notify(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const div = document.createElement('div');
+      div.className = `p-3 px-6 rounded-2xl shadow-xl font-bold text-sm flex items-center gap-2 translate-y-4 opacity-0 transition-all duration-300 ${type === 'error' ? 'bg-red-500 text-white' : 'bg-white text-slate-800'}`;
+      div.innerHTML = `<span>${type === 'error' ? '⚠️' : '✨'}</span> ${msg}`;
+      container.appendChild(div);
+      setTimeout(() => div.classList.remove('translate-y-4', 'opacity-0'), 10);
+      setTimeout(() => { 
+        div.classList.add('translate-y-4', 'opacity-0');
+        setTimeout(() => div.remove(), 300);
+      }, 2500);
+    }
+
+    function addFloatingText(text, x, y, color = '#ffffff') {
+      const div = document.createElement('div');
+      div.className = 'absolute font-black text-xl pointer-events-none float-msg z-[200]';
+      div.style.left = `${x}px`;
+      div.style.top = `${y}px`;
+      div.style.color = color;
+      div.innerText = text;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 1200);
+    }
+
+    // --- Game Logic Functions ---
+    function spawnAnimal(type, x, y) {
+      state.animals.push({
+        type, x, y,
+        targetX: x, targetY: y,
+        idleUntil: 0,
+        hunger: 1.0,
+        lastProd: performance.now(),
+        hop: 0,
+        id: Math.random()
+      });
+    }
+
+    function addXP(amount) {
+      state.xp += amount;
+      let xpReq = state.level * 100;
+      
+      // Cek Naik Level
+      if (state.xp >= xpReq) {
+        state.level++;
+        state.xp -= xpReq; // Sisa XP dibawa ke level selanjutnya
+        notify(`🎉 Naik Level! Anda sekarang Level ${state.level}`, 'success');
+      }
+      updateUI();
+    }
+
+    function buyAnimal(type) {
+      if (state.coins >= ITEMS[type].price) {
+        state.coins -= ITEMS[type].price;
+        // Pastikan hewan baru yang dibeli juga spawn di area yang aman (koordinat 3.5 hingga 7.5)
+        spawnAnimal(type, Math.random() * 4 + 3.5, Math.random() * 4 + 3.5);
+        updateUI();
+        notify(`Membeli ${ITEMS[type].label}!`, 'success');
+      } else {
+        notify("Koin tidak cukup!", "error");
+      }
+    }
+
+    function sellItem(key) {
+      if (state.inventory[key] > 0) {
+        state.inventory[key]--;
+        state.coins += MARKET[key];
+        addXP(20); // Tambah XP saat menjual barang
+        updateUI();
+      }
+    }
+
+    function buyFeed() {
+      if (state.coins >= MARKET.feed) {
+        state.coins -= MARKET.feed;
+        state.feed += 5;
+        updateUI();
+        notify("Membeli 5 unit Pakan", "success");
+      } else {
+        notify("Koin tidak cukup!", "error");
+      }
+    }
+
+    function feedAll() {
+      const hungryAnimals = state.animals.filter(a => a.hunger < 0.9);
+      if (hungryAnimals.length === 0) return notify("Semua hewan sudah kenyang!");
+      
+      const feedNeeded = hungryAnimals.length;
+      if (state.feed >= feedNeeded) {
+        state.feed -= feedNeeded;
+        hungryAnimals.forEach(a => a.hunger = 1.0);
+        addXP(5 * feedNeeded); // Tambah XP saat memberi makan
+        notify(`Berhasil memberi makan ${feedNeeded} hewan!`, 'success');
+        updateUI();
+      } else {
+        notify("Stok pakan tidak cukup!", "error");
+      }
+    }
+
+    function updateUI() {
+      // Top Bar Stats
+      document.getElementById('coin-count').innerText = Math.floor(state.coins);
+      document.getElementById('feed-count').innerText = state.feed;
+      
+      // XP & Profile
+      const xpReq = state.level * 100;
+      document.getElementById('xp-bar').style.width = `${(state.xp / xpReq) * 100}%`;
+      document.getElementById('xp-text').innerText = `${state.xp}/${xpReq}`;
+      document.getElementById('level-badge').innerText = `LV ${state.level}`;
+      
+      // Penentuan Gelar
+      const titleIndex = Math.min(state.level - 1, TITLES.length - 1);
+      document.getElementById('player-title').innerText = TITLES[titleIndex];
+
+      // Update Modal Contents
+      const shopContent = document.getElementById('shop-content');
+      shopContent.innerHTML = Object.entries(ITEMS).map(([key, item]) => `
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl shadow-sm border border-slate-100">
+              ${key === 'chicken' ? '🐔' : key === 'cow' ? '🐄' : '🐑'}
+            </div>
+            <div>
+              <p class="font-bold text-slate-800">${item.label}</p>
+              <p class="text-xs font-bold text-amber-600 flex items-center gap-1">
+                <i data-lucide="coins" class="w-3 h-3"></i> ${item.price}
+              </p>
+            </div>
+          </div>
+          <button onclick="buyAnimal('${key}')" class="bg-blue-500 hover:bg-blue-600 text-white p-2.5 rounded-xl shadow-md active:scale-90 transition-transform">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+        </div>
+      `).join('');
+
+      const marketContent = document.getElementById('market-content');
+      marketContent.innerHTML = Object.entries(state.inventory).map(([key, count]) => `
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border ${count > 0 ? 'border-amber-200' : 'border-slate-100'}">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl shadow-sm border border-slate-100">
+              ${key === 'egg' ? '🥚' : key === 'milk' ? '🍼' : '🧶'}
+            </div>
+            <div>
+              <p class="font-bold text-slate-800 capitalize">${key === 'egg' ? 'Telur' : key === 'milk' ? 'Susu' : 'Wol'}</p>
+              <p class="text-xs text-slate-500 font-medium">Stok: <span class="${count > 0 ? 'text-amber-600 font-bold' : ''}">${count}</span></p>
+            </div>
+          </div>
+          <button onclick="sellItem('${key}')" ${count <= 0 ? 'disabled' : ''} class="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all">
+            Jual +$${MARKET[key]}
+          </button>
+        </div>
+      `).join('');
+
+      // Storage Content
+      document.getElementById('store-milk').innerText = state.inventory.milk;
+      document.getElementById('store-egg').innerText = state.inventory.egg;
+      document.getElementById('store-wool').innerText = state.inventory.wool;
+
+      lucide.createIcons();
+    }
+
+    // --- Rendering Logic ---
+    function isoToScreen(x, y, z) {
+      const offsetX = canvas.width / 2;
+      const offsetY = canvas.height / 2 - (GRID * TILE_H) / 2 + 100;
+      return {
+        x: (x - y) * (TILE_W / 2) + offsetX,
+        y: (x + y) * (TILE_H / 2) - z + offsetY
+      };
+    }
+
+    function drawCube(x, y, z, w, l, h, colors) {
+      const p1 = isoToScreen(x, y, z + h);
+      const p2 = isoToScreen(x + w, y, z + h);
+      const p3 = isoToScreen(x + w, y + l, z + h);
+      const p4 = isoToScreen(x, y + l, z + h);
+      const p5 = isoToScreen(x, y + l, z);
+      const p6 = isoToScreen(x + w, y + l, z);
+      const p7 = isoToScreen(x + w, y, z);
+
+      if (z > 4) {
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.beginPath();
+        const s0 = isoToScreen(x,y,5); const s1 = isoToScreen(x+w,y,5); const s2 = isoToScreen(x+w,y+l,5); const s3 = isoToScreen(x,y+l,5);
+        ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.lineTo(s3.x, s3.y);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = colors.top;
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.fill();
+      ctx.fillStyle = colors.left;
+      ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p6.x, p6.y); ctx.lineTo(p5.x, p5.y); ctx.fill();
+      ctx.fillStyle = colors.right;
+      ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p7.x, p7.y); ctx.lineTo(p6.x, p6.y); ctx.fill();
+    }
+
+    function gameLoop(time) {
+      const dt = time - state.lastTime;
+      state.lastTime = time;
+
+      // Update Time (2 menit siklus)
+      state.timeOfDay = (time / 120000) % 1; 
+      const isNight = state.timeOfDay > 0.6;
+      document.body.classList.toggle('night-mode', isNight);
+
+      // Clear Canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // ==========================================
+      // 0. RENDER BACKGROUND ENVIRONMENT
+      // ==========================================
+      
+      // Gambar Bintang (jika malam)
+      if (isNight) {
+        ctx.fillStyle = '#ffffff';
+        state.stars.forEach(star => {
+          // Kelap kelip (opacity berubah berdasarkan phase dan time)
+          const alpha = 0.1 + Math.abs(Math.sin(time * star.speed + star.phase)) * 0.9;
+          ctx.globalAlpha = alpha;
           ctx.beginPath();
-          ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
-          ctx.arc(c.x + c.size * 0.8, c.y - c.size * 0.3, c.size * 0.8, 0, Math.PI * 2);
-          ctx.arc(c.x + c.size * 1.6, c.y, c.size * 0.9, 0, Math.PI * 2);
+          ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
           ctx.fill();
         });
+        ctx.globalAlpha = 1.0; // Reset
+      }
 
-        const offsetX = canvas.width / 2;
-        const offsetY = canvas.height / 2 - (GRID_SIZE * TILE_H) / 2 + 100;
+      // Gambar Awan Looping Transparan
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      if (isNight) ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'; // Awan lebih gelap saat malam
+      state.clouds.forEach(c => {
+        c.x += c.speed;
+        if(c.x > canvas.width + 150) c.x = -150; // Looping
+        
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 40 * c.scale, 0, Math.PI*2);
+        ctx.arc(c.x + 30 * c.scale, c.y - 20 * c.scale, 35 * c.scale, 0, Math.PI*2);
+        ctx.arc(c.x + 60 * c.scale, c.y, 30 * c.scale, 0, Math.PI*2);
+        ctx.fill();
+      });
 
-        const baseDepth = 40;
-        drawBlock(ctx, 0, 0, -baseDepth, GRID_SIZE, GRID_SIZE, baseDepth, offsetX, offsetY, {
-          top: '#8b5a2b', left: '#6b4423', right: '#5c3a21'
-        });
-
-        drawBlock(ctx, 0, 0, 0, GRID_SIZE, GRID_SIZE, 5, offsetX, offsetY, {
-          top: '#7ec850', left: '#61a33b', right: '#4d8a2d'
-        });
-
-        const waterZ = 1 + Math.sin(time / 400) * 0.5;
-        drawBlock(ctx, GRID_SIZE, 0, -2, 1.5, GRID_SIZE + 1.5, 5 + waterZ, offsetX, offsetY, {
-          top: '#38bdf8', left: '#0ea5e9', right: '#0284c7'
-        });
-        drawBlock(ctx, 0, GRID_SIZE, -2, GRID_SIZE, 1.5, 5 + waterZ, offsetX, offsetY, {
-          top: '#38bdf8', left: '#0ea5e9', right: '#0284c7'
-        });
-
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= GRID_SIZE; i++) {
-          const startX = isoToScreen(i, 0, 5, offsetX, offsetY);
-          const endX = isoToScreen(i, GRID_SIZE, 5, offsetX, offsetY);
-          ctx.beginPath(); ctx.moveTo(startX.x, startX.y); ctx.lineTo(endX.x, endX.y); ctx.stroke();
-          
-          const startY = isoToScreen(0, i, 5, offsetX, offsetY);
-          const endY = isoToScreen(GRID_SIZE, i, 5, offsetX, offsetY);
-          ctx.beginPath(); ctx.moveTo(startY.x, startY.y); ctx.lineTo(endY.x, endY.y); ctx.stroke();
-        }
-
-        const drawFence = (ix, iy, iz) => {
-          drawBlock(ctx, ix, iy, iz, 0.2, 0.2, 0.8, offsetX, offsetY, { top:'#d4a373', left:'#c28e5c', right:'#a9794c' });
-        };
-        for(let i=0; i<=GRID_SIZE; i++) {
-          if (i > 2) drawFence(i, 0, 5);
-          if (i > 2) drawFence(0, i, 5);
-          if(i < GRID_SIZE) {
-              drawFence(i, GRID_SIZE-0.2, 5);
-              drawFence(GRID_SIZE-0.2, i, 5);
+      // ==========================================
+      // 1. RENDER LAPISAN TANAH (GRASS & RIVER)
+      // ==========================================
+      for (let sum = 0; sum <= GRID * 2; sum++) {
+        for (let i = 0; i <= GRID; i++) {
+          let j = sum - i;
+          if (j >= 0 && j <= GRID) {
+            const isGrass = (i >= 0 && i < GRID && j >= 0 && j < GRID);
+            const img = isGrass ? IMAGES.grass : IMAGES.river;
+            
+            if (img && img.width > 0) {
+              const screen = isoToScreen(i, j, 0);
+              const drawH = TILE_W * (img.height / img.width); 
+              ctx.drawImage(img, screen.x - TILE_W/2, screen.y - TILE_H/2, TILE_W, drawH);
+            }
           }
         }
+      }
 
-        const renderables = [];
+      // ==========================================
+      // 2. LOGIKA ENTITAS & LAPISAN OBJEK (SAPI, BARN, ITEM)
+      // ==========================================
+      const renderList = [];
 
-        gameState.animals.forEach(animal => {
-          const dx = animal.targetX - animal.x;
-          const dy = animal.targetY - animal.y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          
-          if (dist < 0.1) {
-            let nX = Math.random() * (GRID_SIZE - 2) + 1;
-            let nY = Math.random() * (GRID_SIZE - 2) + 1;
-            while(nX < 3 && nY < 3) {
-              nX = Math.random() * (GRID_SIZE - 2) + 1;
-              nY = Math.random() * (GRID_SIZE - 2) + 1;
-            }
-            animal.targetX = nX;
-            animal.targetY = nY;
+      renderList.push({ type: 'barn', x: 1.5, y: 1.5, depth: 4.5 });
+
+      // Animals
+      state.animals.forEach(a => {
+        const dx = a.targetX - a.x, dy = a.targetY - a.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < 0.1) {
+          if (time > a.idleUntil) {
+            // Batasi koordinat target jalan agar tidak menembus barn (Barn berada di area 0 - 3)
+            a.targetX = Math.random() * 4 + 3.5;
+            a.targetY = Math.random() * 4 + 3.5;
+            // Perlama waktu idle (diam) sapi menjadi 5 hingga 13 detik
+            a.idleUntil = time + 5000 + Math.random() * 8000;
           } else {
-            animal.x += (dx / dist) * animal.speed;
-            animal.y += (dy / dist) * animal.speed;
+            a.x = a.targetX;
+            a.y = a.targetY;
           }
+        } else {
+          // Kurangi sedikit kecepatan jalan sapi agar lebih santai
+          a.x += (dx/dist) * 0.008;
+          a.y += (dy/dist) * 0.008;
+        }
+        
+        a.hop = (dist >= 0.1) ? Math.abs(Math.sin(time/200)) * 0.2 : 0;
+        a.hunger = Math.max(0, a.hunger - 0.00005 * dt);
 
-          animal.hopPhase += 0.2;
-          animal.zOffset = Math.abs(Math.sin(animal.hopPhase)) * 0.2;
+        if (a.hunger > 0 && time - a.lastProd > ITEMS[a.type].rate) {
+          a.lastProd = time;
+          state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, z: 5, bounce: 0, id: Math.random() });
+        }
 
-          if (time - animal.lastProduce > TIMERS[animal.type]) {
-            animal.lastProduce = time;
-            gameState.drops.push({
-              id: Math.random().toString(),
-              type: animal.type === 'chicken' ? 'egg' : 'milk',
-              x: animal.x,
-              y: animal.y,
-              spawnTime: time,
-              hoverPhase: Math.random() * 10
-            });
+        renderList.push({ type: 'animal', data: a, depth: a.x + a.y });
+      });
+
+      // Drops
+      state.drops.forEach(d => {
+        d.bounce = Math.sin(time/300) * 2;
+        renderList.push({ type: 'drop', data: d, depth: d.x + d.y });
+      });
+
+      renderList.sort((a,b) => a.depth - b.depth);
+
+      // Menggambar entitas
+      renderList.forEach(obj => {
+        if (obj.type === 'barn') {
+          if (IMAGES.barn && IMAGES.barn.width > 0) {
+             const screen = isoToScreen(obj.x, obj.y, 0);
+             ctx.drawImage(IMAGES.barn, screen.x - 90, screen.y - 140, 180, 180); 
           }
-          renderables.push({ type: 'animal', data: animal, depth: animal.x + animal.y });
-        });
-
-        gameState.drops.forEach(drop => {
-          drop.hoverPhase += 0.05;
-          renderables.push({ type: 'drop', data: drop, depth: drop.x + drop.y });
-        });
-
-        renderables.push({ type: 'barn', depth: 0.1 });
-        renderables.sort((a, b) => a.depth - b.depth);
-
-        renderables.forEach(item => {
-          if (item.type === 'barn') {
-            drawBlock(ctx, 0.2, 0.2, 5, 2, 2, 2, offsetX, offsetY, { top: '#ef4444', left: '#dc2626', right: '#b91c1c' });
-            drawBlock(ctx, 0, 0, 7, 2.4, 2.4, 1.2, offsetX, offsetY, { top: '#fcd34d', left: '#f59e0b', right: '#d97706' });
-            drawBlock(ctx, 2.2, 0.8, 5, 0.05, 0.8, 1.2, offsetX, offsetY, { top: '#171717', left: '#262626', right: '#404040' });
-          } else if (item.type === 'animal') {
-            const d = item.data;
-            if (d.type === 'chicken') {
-              const aw = 0.4, al = 0.4, ah = 0.5, az = 5 + d.zOffset;
-              drawBlock(ctx, d.x - aw/2, d.y - al/2, az, aw, al, ah, offsetX, offsetY, { top: '#ffffff', left: '#f0f0f0', right: '#e0e0e0' });
-              drawBlock(ctx, d.x - 0.1, d.y - 0.1, az + ah, 0.2, 0.2, 0.2, offsetX, offsetY, { top: '#ef4444', left: '#dc2626', right: '#b91c1c' });
-            } else if (d.type === 'cow') {
-               const sw = 0.8, sl = 0.5, sh = 0.7, sz = 5 + d.zOffset;
-               drawBlock(ctx, d.x - sw/2, d.y - sl/2, sz, sw, sl, sh, offsetX, offsetY, { top: '#ffffff', left: '#f0f0f0', right: '#d4d4d4' });
-               drawBlock(ctx, d.x + sw/4, d.y - sl/4, sz + 0.2, 0.4, 0.4, 0.5, offsetX, offsetY, { top: '#171717', left: '#262626', right: '#404040' });
+        }
+        else if (obj.type === 'animal') {
+          const a = obj.data;
+          const screen = isoToScreen(a.x, a.y, a.hop * 10);
+          
+          if (a.type === 'cow' && IMAGES.cowIdle && IMAGES.cowWalk) {
+            const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
+            const frames = isMoving ? 2 : 4;
+            const frameIdx = Math.floor(time / 200) % frames;
+            const img = isMoving ? IMAGES.cowWalk : IMAGES.cowIdle;
+            
+            ctx.save();
+            if (a.targetX > a.x) { 
+              ctx.translate(screen.x, screen.y);
+              ctx.scale(-1, 1);
+              ctx.drawImage(img, frameIdx * 500, 0, 500, 500, -40, -60, 80, 80);
+            } else {
+              ctx.drawImage(img, frameIdx * 500, 0, 500, 500, screen.x - 40, screen.y - 60, 80, 80);
             }
-          } else if (item.type === 'drop') {
-             const d = item.data;
-             const hoverZ = Math.sin(d.hoverPhase) * 0.2;
-             if (d.type === 'egg') {
-               drawBlock(ctx, d.x - 0.15, d.y - 0.15, 5 + hoverZ, 0.3, 0.3, 0.3, offsetX, offsetY, { top: '#ffedd5', left: '#fed7aa', right: '#fdba74' });
-             } else if (d.type === 'milk') {
-               drawBlock(ctx, d.x - 0.2, d.y - 0.2, 5 + hoverZ, 0.4, 0.4, 0.6, offsetX, offsetY, { top: '#e0f2fe', left: '#bae6fd', right: '#7dd3fc' });
-               drawBlock(ctx, d.x - 0.1, d.y - 0.1, 5 + hoverZ + 0.6, 0.2, 0.2, 0.1, offsetX, offsetY, { top: '#ef4444', left: '#dc2626', right: '#b91c1c' });
-             }
+            ctx.restore();
+            
+          } else {
+            const sz = a.type === 'chicken' ? 0.4 : 0.7;
+            drawCube(a.x - sz/2, a.y - sz/2, 5 + a.hop, sz, sz, sz, { top: ITEMS[a.type].color, left: '#ccc', right: '#bbb' });
           }
-        });
 
-        requestAnimationFrame(render);
-      };
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+          ctx.fillRect(screen.x - 10, screen.y - 40, 20, 3);
+          ctx.fillStyle = a.hunger > 0.3 ? '#22c55e' : '#ef4444';
+          ctx.fillRect(screen.x - 10, screen.y - 40, 20 * a.hunger, 3);
+          
+        } else if (obj.type === 'drop') {
+          const d = obj.data;
+          const screen = isoToScreen(d.x, d.y, d.bounce * 5); 
+          
+          if (d.type === 'milk' && IMAGES.milk) {
+            ctx.drawImage(IMAGES.milk, screen.x - 15, screen.y - 20, 30, 30);
+          } else {
+            const color = d.type === 'egg' ? { top: '#fff', left: '#eee', right: '#ddd' } : { top: '#f1f5f9', left: '#e2e8f0', right: '#cbd5e1' };
+            drawCube(d.x - 0.2, d.y - 0.2, 5 + d.bounce, 0.4, 0.4, 0.4, color);
+          }
+        }
+      });
 
-      requestAnimationFrame(render);
-    };
+      requestAnimationFrame(gameLoop);
+    }
+
+    // --- Input Interaction ---
+    canvas.addEventListener('click', (e) => {
+      // Cek apakah user sedang menekan area di belakang modal terbuka
+      if (!document.getElementById('modal-backdrop').classList.contains('hidden')) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+      let collected = false;
+      state.drops = state.drops.filter(d => {
+        const screen = isoToScreen(d.x, d.y, 5 + d.bounce);
+        const dist = Math.sqrt((mx - screen.x)**2 + (my - screen.y)**2);
+        if (dist < 30 && !collected) {
+          collected = true;
+          state.inventory[d.type]++;
+          addXP(10); // Menambah XP saat mengumpulkan hasil!
+          addFloatingText(`+1 ${d.type}`, mx, my, '#3b82f6');
+          return false;
+        }
+        return true;
+      });
+    });
+
+    // Start
+    window.onload = init;
   </script>
 </body>
 </html>
