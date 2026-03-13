@@ -1,3 +1,13 @@
+/**
+ * Farm Game Isometric - React Component
+ * * Persyaratan (Dependencies) untuk menjalankan kode ini secara lokal:
+ * 1. Tailwind CSS (digunakan untuk styling UI).
+ * 2. lucide-react (digunakan untuk ikon pada UI): jalankan `npm install lucide-react`
+ * * Cara Penggunaan:
+ * Salin file ini menjadi `FarmGame.jsx` atau letakkan di `App.jsx` pada proyek
+ * Vite / Create React App Anda. Komponen ini secara otomatis akan menyesuaikan
+ * ukuran layar (fullscreen).
+ */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ShoppingCart, Store, Coins, Package, Info, Plus } from 'lucide-react';
@@ -79,7 +89,7 @@ const drawBlock = (ctx, x, y, z, w, l, h, offsetX, offsetY, colors) => {
   ctx.fill();
 };
 
-export default function App() {
+export default function FarmGame() {
   const canvasRef = useRef(null);
   
   // UI State
@@ -88,7 +98,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('shop'); // 'shop' or 'market'
   const [floatingTexts, setFloatingTexts] = useState([]);
   
-  // --- NEW: State awan yang bergerak ---
+  // State awan yang bergerak
   const cloudsRef = useRef([
     { x: 100, y: 150, speed: 0.3, size: 40, opacity: 0.8 },
     { x: 500, y: 100, speed: 0.2, size: 60, opacity: 0.6 },
@@ -105,13 +115,13 @@ export default function App() {
   });
 
   // UI helpers
-  const showFloatingText = (text, x, y, color = '#22c55e') => {
+  const showFloatingText = useCallback((text, x, y, color = '#22c55e') => {
     const id = Date.now() + Math.random();
     setFloatingTexts(prev => [...prev, { id, text, x, y, color }]);
     setTimeout(() => {
       setFloatingTexts(prev => prev.filter(ft => ft.id !== id));
     }, 1500);
-  };
+  }, []);
 
   // --- BUY & SELL LOGIC ---
   const buyAnimal = (type) => {
@@ -139,7 +149,7 @@ export default function App() {
         hopPhase: 0
       };
       gameState.current.animals.push(newAnimal);
-      showFloatingText(`- ${PRICES[type].cost} Coins`, window.innerWidth/2, window.innerHeight/2, '#ef4444');
+      showFloatingText(`- ${PRICES[type].cost} Coins`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
     } else {
       alert("Not enough coins!");
     }
@@ -156,6 +166,8 @@ export default function App() {
   // --- GAME LOOP ---
   useEffect(() => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+    
     const ctx = canvas.getContext('2d');
     let animationFrameId;
 
@@ -373,8 +385,10 @@ export default function App() {
   }, []);
 
   // --- CANVAS CLICK INTERACTION (COLLECTING DROPS) ---
-  const handleCanvasClick = (e) => {
+  const handleCanvasClick = useCallback((e) => {
     const canvas = canvasRef.current;
+    if (!canvas) return;
+    
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -406,7 +420,7 @@ export default function App() {
     }
 
     state.drops = newDrops;
-  };
+  }, [showFloatingText]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden font-sans select-none bg-blue-100">
