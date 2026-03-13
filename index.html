@@ -1,620 +1,543 @@
-/**
- * Farm Game Isometric - React Component
- * * Persyaratan (Dependencies) untuk menjalankan kode ini secara lokal:
- * 1. Tailwind CSS (digunakan untuk styling UI).
- * 2. lucide-react (digunakan untuk ikon pada UI): jalankan `npm install lucide-react`
- * * Cara Penggunaan:
- * Salin file ini menjadi `FarmGame.jsx` atau letakkan di `App.jsx` pada proyek
- * Vite / Create React App Anda. Komponen ini secara otomatis akan menyesuaikan
- * ukuran layar (fullscreen).
- */
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ShoppingCart, Store, Coins, Package, Info, Plus } from 'lucide-react';
-
-// --- GAME CONSTANTS ---
-const TILE_W = 64;
-const TILE_H = 32;
-const GRID_SIZE = 8;
-const FPS = 60;
-
-const PRICES = {
-  chicken: { cost: 50, name: 'Chicken' },
-  cow: { cost: 150, name: 'Cow' },
-  egg: { sell: 10, name: 'Egg' },
-  milk: { sell: 30, name: 'Milk' }
-};
-
-const TIMERS = {
-  chicken: 8000, // 8 seconds to produce an egg
-  cow: 15000 // 15 seconds to produce milk
-};
-
-// --- ISOMETRIC HELPERS ---
-// Convert grid (x,y,z) to screen (x,y)
-const isoToScreen = (isoX, isoY, isoZ, offsetX, offsetY) => {
-  const screenX = (isoX - isoY) * (TILE_W / 2) + offsetX;
-  const screenY = (isoX + isoY) * (TILE_H / 2) - isoZ + offsetY;
-  return { x: screenX, y: screenY };
-};
-
-// Convert screen to grid (rough, assumes z=0)
-const screenToIso = (screenX, screenY, offsetX, offsetY) => {
-  const adjX = screenX - offsetX;
-  const adjY = screenY - offsetY;
-  const isoX = (adjX / (TILE_W / 2) + adjY / (TILE_H / 2)) / 2;
-  const isoY = (adjY / (TILE_H / 2) - adjX / (TILE_W / 2)) / 2;
-  return { x: isoX, y: isoY };
-};
-
-// Function to draw an isometric cube
-const drawBlock = (ctx, x, y, z, w, l, h, offsetX, offsetY, colors) => {
-  const p0 = isoToScreen(x, y, z + h, offsetX, offsetY); // Top
-  const p1 = isoToScreen(x + w, y, z + h, offsetX, offsetY); // Top Right
-  const p2 = isoToScreen(x + w, y + l, z + h, offsetX, offsetY); // Bottom Right
-  const p3 = isoToScreen(x, y + l, z + h, offsetX, offsetY); // Bottom Left
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farm Game Isometric</title>
   
-  const p4 = isoToScreen(x, y + l, z, offsetX, offsetY); // Bottom Base Left
-  const p5 = isoToScreen(x + w, y + l, z, offsetX, offsetY); // Bottom Base Right
-  const p6 = isoToScreen(x + w, y, z, offsetX, offsetY); // Right Base
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-  // Top Face
-  ctx.fillStyle = colors.top;
-  ctx.beginPath();
-  ctx.moveTo(p0.x, p0.y);
-  ctx.lineTo(p1.x, p1.y);
-  ctx.lineTo(p2.x, p2.y);
-  ctx.lineTo(p3.x, p3.y);
-  ctx.closePath();
-  ctx.fill();
-
-  // Left Face
-  ctx.fillStyle = colors.left;
-  ctx.beginPath();
-  ctx.moveTo(p3.x, p3.y);
-  ctx.lineTo(p2.x, p2.y);
-  ctx.lineTo(p5.x, p5.y);
-  ctx.lineTo(p4.x, p4.y);
-  ctx.closePath();
-  ctx.fill();
-
-  // Right Face
-  ctx.fillStyle = colors.right;
-  ctx.beginPath();
-  ctx.moveTo(p2.x, p2.y);
-  ctx.lineTo(p1.x, p1.y);
-  ctx.lineTo(p6.x, p6.y);
-  ctx.lineTo(p5.x, p5.y);
-  ctx.closePath();
-  ctx.fill();
-};
-
-export default function FarmGame() {
-  const canvasRef = useRef(null);
+  <style>
+    /* Animasi untuk teks yang melayang (floating text) */
+    @keyframes bounce-up {
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-50px); opacity: 0; }
+    }
+    .floating-text {
+      animation: bounce-up 1.5s ease-out forwards;
+      text-shadow: 0px 2px 4px rgba(0,0,0,0.5);
+    }
+    /* Memastikan tombol disabled terlihat berbeda */
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body class="relative w-full h-screen overflow-hidden font-sans select-none bg-blue-100">
   
-  // UI State
-  const [coins, setCoins] = useState(200);
-  const [inventory, setInventory] = useState({ egg: 0, milk: 0 });
-  const [activeTab, setActiveTab] = useState('shop'); // 'shop' or 'market'
-  const [floatingTexts, setFloatingTexts] = useState([]);
-  
-  // State awan yang bergerak
-  const cloudsRef = useRef([
-    { x: 100, y: 150, speed: 0.3, size: 40, opacity: 0.8 },
-    { x: 500, y: 100, speed: 0.2, size: 60, opacity: 0.6 },
-    { x: 900, y: 200, speed: 0.4, size: 35, opacity: 0.7 },
-    { x: -200, y: 80, speed: 0.15, size: 50, opacity: 0.5 }
-  ]);
+  <!-- Canvas Layer -->
+  <canvas id="gameCanvas" class="absolute inset-0 cursor-pointer"></canvas>
 
-  // Mutable Game State for Loop (avoids stale state closures)
-  const gameState = useRef({
-    animals: [],
-    drops: [],
-    particles: [],
-    lastTime: performance.now()
-  });
+  <!-- Floating Texts Container -->
+  <div id="floating-texts-container" class="absolute inset-0 pointer-events-none z-50"></div>
 
-  // UI helpers
-  const showFloatingText = useCallback((text, x, y, color = '#22c55e') => {
-    const id = Date.now() + Math.random();
-    setFloatingTexts(prev => [...prev, { id, text, x, y, color }]);
-    setTimeout(() => {
-      setFloatingTexts(prev => prev.filter(ft => ft.id !== id));
-    }, 1500);
-  }, []);
-
-  // --- BUY & SELL LOGIC ---
-  const buyAnimal = (type) => {
-    if (coins >= PRICES[type].cost) {
-      setCoins(prev => prev - PRICES[type].cost);
-      
-      // Add animal at random position (Hindari area kandang di x<3, y<3)
-      let startX = Math.random() * (GRID_SIZE - 2) + 1;
-      let startY = Math.random() * (GRID_SIZE - 2) + 1;
-      while (startX < 3 && startY < 3) {
-        startX = Math.random() * (GRID_SIZE - 2) + 1;
-        startY = Math.random() * (GRID_SIZE - 2) + 1;
-      }
-
-      const newAnimal = {
-        id: Math.random().toString(),
-        type: type,
-        x: startX,
-        y: startY,
-        targetX: startX,
-        targetY: startY,
-        speed: type === 'chicken' ? 0.02 : 0.01,
-        lastProduce: performance.now(),
-        zOffset: 0,
-        hopPhase: 0
-      };
-      gameState.current.animals.push(newAnimal);
-      showFloatingText(`- ${PRICES[type].cost} Coins`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
-    } else {
-      alert("Not enough coins!");
-    }
-  };
-
-  const sellItem = (item) => {
-    if (inventory[item] > 0) {
-      setInventory(prev => ({ ...prev, [item]: prev[item] - 1 }));
-      setCoins(prev => prev + PRICES[item].sell);
-      showFloatingText(`+ ${PRICES[item].sell} Coins`, window.innerWidth - 200, 100, '#eab308');
-    }
-  };
-
-  // --- GAME LOOP ---
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  <!-- Top UI Layer -->
+  <div class="absolute inset-0 pointer-events-none z-10">
     
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
+    <!-- Top Left: Profile Info -->
+    <div class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-auto">
+      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg flex items-center gap-4">
+        <div class="bg-orange-200 w-12 h-12 rounded-full flex items-center justify-center border-2 border-orange-400">
+          <span class="text-2xl">👨‍🌾</span>
+        </div>
+        <div>
+          <h1 class="font-bold text-gray-800 text-lg leading-tight">Master Farmer</h1>
+          <p class="text-xs text-gray-500 font-semibold">Main Farm</p>
+          <div class="mt-1 w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-green-500 h-2 rounded-full" style="width: 45%"></div>
+          </div>
+        </div>
+      </div>
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    window.addEventListener('resize', resize);
-    resize();
-
-    const render = (time) => {
-      const state = gameState.current;
-      const deltaTime = time - state.lastTime;
-      state.lastTime = time;
-
-      // Clear screen
-      ctx.fillStyle = '#cbe4f9'; // Sky/background color
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // --- Draw Clouds (Awan) ---
-      cloudsRef.current.forEach(c => {
-        c.x += c.speed;
-        if (c.x > canvas.width + 200) c.x = -200;
-        ctx.fillStyle = `rgba(255, 255, 255, ${c.opacity})`;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
-        ctx.arc(c.x + c.size * 0.8, c.y - c.size * 0.3, c.size * 0.8, 0, Math.PI * 2);
-        ctx.arc(c.x + c.size * 1.6, c.y, c.size * 0.9, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      const offsetX = canvas.width / 2;
-      const offsetY = canvas.height / 2 - (GRID_SIZE * TILE_H) / 2 + 100; // Vertical center
-
-      // 1. Draw Base Land (Island)
-      const baseDepth = 40;
-      drawBlock(ctx, 0, 0, -baseDepth, GRID_SIZE, GRID_SIZE, baseDepth, offsetX, offsetY, {
-        top: '#8b5a2b',   // Dark dirt top (will be covered by grass)
-        left: '#6b4423',  // Left dirt
-        right: '#5c3a21'  // Right dirt
-      });
-
-      // 2. Draw Grass Surface
-      drawBlock(ctx, 0, 0, 0, GRID_SIZE, GRID_SIZE, 5, offsetX, offsetY, {
-        top: '#7ec850',   // Bright grass
-        left: '#61a33b',  // Dirt/roots
-        right: '#4d8a2d'
-      });
-
-      // --- Draw River (Sungai di bawah) ---
-      const waterZ = 1 + Math.sin(time / 400) * 0.5;
-      // Bottom-Right River
-      drawBlock(ctx, GRID_SIZE, 0, -2, 1.5, GRID_SIZE + 1.5, 5 + waterZ, offsetX, offsetY, {
-        top: '#38bdf8', left: '#0ea5e9', right: '#0284c7'
-      });
-      // Bottom-Left River
-      drawBlock(ctx, 0, GRID_SIZE, -2, GRID_SIZE, 1.5, 5 + waterZ, offsetX, offsetY, {
-        top: '#38bdf8', left: '#0ea5e9', right: '#0284c7'
-      });
-
-      // Draw Grid (Optional for aesthetics)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= GRID_SIZE; i++) {
-        // X Lines
-        const startX = isoToScreen(i, 0, 5, offsetX, offsetY);
-        const endX = isoToScreen(i, GRID_SIZE, 5, offsetX, offsetY);
-        ctx.beginPath(); ctx.moveTo(startX.x, startX.y); ctx.lineTo(endX.x, endX.y); ctx.stroke();
-        // Y Lines
-        const startY = isoToScreen(0, i, 5, offsetX, offsetY);
-        const endY = isoToScreen(GRID_SIZE, i, 5, offsetX, offsetY);
-        ctx.beginPath(); ctx.moveTo(startY.x, startY.y); ctx.lineTo(endY.x, endY.y); ctx.stroke();
-      }
-
-      // 3. Draw Fence (Simple)
-      const drawFence = (ix, iy, iz) => {
-        drawBlock(ctx, ix, iy, iz, 0.2, 0.2, 0.8, offsetX, offsetY, { top:'#d4a373', left:'#c28e5c', right:'#a9794c' });
-      };
-      for(let i=0; i<=GRID_SIZE; i++) {
-        if (i > 2) drawFence(i, 0, 5); // Top edge (kosongkan area kandang)
-        if (i > 2) drawFence(0, i, 5); // Left edge (kosongkan area kandang)
-        if(i < GRID_SIZE) {
-            drawFence(i, GRID_SIZE-0.2, 5); // Bottom edge
-            drawFence(GRID_SIZE-0.2, i, 5); // Right edge
-        }
-      }
-
-      // Sort entities by isometric depth (Y + X) for correct z-indexing
-      const renderables = [];
-
-      // Update & Collect Animals
-      state.animals.forEach(animal => {
-        // Movement
-        const dx = animal.targetX - animal.x;
-        const dy = animal.targetY - animal.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        
-        if (dist < 0.1) {
-          // Pick new target (Hindari area kandang x<3, y<3)
-          let nX = Math.random() * (GRID_SIZE - 2) + 1;
-          let nY = Math.random() * (GRID_SIZE - 2) + 1;
-          while(nX < 3 && nY < 3) {
-            nX = Math.random() * (GRID_SIZE - 2) + 1;
-            nY = Math.random() * (GRID_SIZE - 2) + 1;
-          }
-          animal.targetX = nX;
-          animal.targetY = nY;
-        } else {
-          animal.x += (dx / dist) * animal.speed;
-          animal.y += (dy / dist) * animal.speed;
-        }
-
-        // Walking animation (little hops)
-        animal.hopPhase += 0.2;
-        animal.zOffset = Math.abs(Math.sin(animal.hopPhase)) * 0.2;
-
-        // Production
-        if (time - animal.lastProduce > TIMERS[animal.type]) {
-          animal.lastProduce = time;
-          state.drops.push({
-            id: Math.random().toString(),
-            type: animal.type === 'chicken' ? 'egg' : 'milk',
-            x: animal.x,
-            y: animal.y,
-            spawnTime: time,
-            hoverPhase: Math.random() * 10
-          });
-        }
-
-        renderables.push({ type: 'animal', data: animal, depth: animal.x + animal.y });
-      });
-
-      // Update & Collect Drops
-      state.drops.forEach(drop => {
-        drop.hoverPhase += 0.05;
-        renderables.push({ type: 'drop', data: drop, depth: drop.x + drop.y });
-      });
-
-      // Tambahkan Kandang (Barn) ke dalam renderables (di pojok atas/belakang)
-      renderables.push({ type: 'barn', depth: 0.1 });
-
-      // Sort renderables by depth (back to front)
-      renderables.sort((a, b) => a.depth - b.depth);
-
-      // 4. Render Entities
-      renderables.forEach(item => {
-        if (item.type === 'barn') {
-          // Draw Kandang Base (Merah)
-          drawBlock(ctx, 0.2, 0.2, 5, 2, 2, 2, offsetX, offsetY, {
-             top: '#ef4444', left: '#dc2626', right: '#b91c1c'
-          });
-          // Draw Atap Kandang (Kuning/Coklat)
-          drawBlock(ctx, 0, 0, 7, 2.4, 2.4, 1.2, offsetX, offsetY, {
-             top: '#fcd34d', left: '#f59e0b', right: '#d97706'
-          });
-          // Draw Pintu Kandang
-          drawBlock(ctx, 2.2, 0.8, 5, 0.05, 0.8, 1.2, offsetX, offsetY, {
-             top: '#171717', left: '#262626', right: '#404040'
-          });
-        } else if (item.type === 'animal') {
-          const d = item.data;
-          if (d.type === 'chicken') {
-            // Draw Chicken (Small white box with red comb)
-            const aw = 0.4, al = 0.4, ah = 0.5;
-            const az = 5 + d.zOffset;
-            drawBlock(ctx, d.x - aw/2, d.y - al/2, az, aw, al, ah, offsetX, offsetY, {
-              top: '#ffffff', left: '#f0f0f0', right: '#e0e0e0'
-            });
-            // Comb
-            drawBlock(ctx, d.x - 0.1, d.y - 0.1, az + ah, 0.2, 0.2, 0.2, offsetX, offsetY, {
-              top: '#ef4444', left: '#dc2626', right: '#b91c1c'
-            });
-          } else if (d.type === 'cow') {
-             // Draw Cow (Larger white box with black spots - simplified)
-             const sw = 0.8, sl = 0.5, sh = 0.7;
-             const sz = 5 + d.zOffset;
-             // Body
-             drawBlock(ctx, d.x - sw/2, d.y - sl/2, sz, sw, sl, sh, offsetX, offsetY, {
-               top: '#ffffff', left: '#f0f0f0', right: '#d4d4d4'
-             });
-             // Head
-             drawBlock(ctx, d.x + sw/4, d.y - sl/4, sz + 0.2, 0.4, 0.4, 0.5, offsetX, offsetY, {
-                top: '#171717', left: '#262626', right: '#404040' // Black
-             });
-          }
-        } else if (item.type === 'drop') {
-           const d = item.data;
-           const hoverZ = Math.sin(d.hoverPhase) * 0.2;
-           if (d.type === 'egg') {
-             drawBlock(ctx, d.x - 0.15, d.y - 0.15, 5 + hoverZ, 0.3, 0.3, 0.3, offsetX, offsetY, {
-               top: '#ffedd5', left: '#fed7aa', right: '#fdba74' // Egg color
-             });
-           } else if (d.type === 'milk') {
-             // Milk bottle
-             drawBlock(ctx, d.x - 0.2, d.y - 0.2, 5 + hoverZ, 0.4, 0.4, 0.6, offsetX, offsetY, {
-                top: '#e0f2fe', left: '#bae6fd', right: '#7dd3fc' // Glass bottle
-             });
-             // Cap
-             drawBlock(ctx, d.x - 0.1, d.y - 0.1, 5 + hoverZ + 0.6, 0.2, 0.2, 0.1, offsetX, offsetY, {
-                top: '#ef4444', left: '#dc2626', right: '#b91c1c'
-             });
-           }
-        }
-      });
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-
-    render(performance.now());
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  // --- CANVAS CLICK INTERACTION (COLLECTING DROPS) ---
-  const handleCanvasClick = useCallback((e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    
-    const offsetX = canvas.width / 2;
-    const offsetY = canvas.height / 2 - (GRID_SIZE * TILE_H) / 2 + 100;
-
-    // Check if click hits a drop area
-    const state = gameState.current;
-    const newDrops = [];
-    let collectedSomething = false;
-
-    for (let i = 0; i < state.drops.length; i++) {
-      const drop = state.drops[i];
-      // Project drop position to screen
-      const dropScreenPos = isoToScreen(drop.x, drop.y, 5, offsetX, offsetY);
+      <!-- Inventory Balance -->
+      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg w-56">
+        <h2 class="text-xs font-bold text-gray-400 mb-2 tracking-wider">INVENTORY</h2>
+        <div class="flex flex-col gap-2">
+          <div class="flex justify-between items-center bg-blue-100 rounded-lg p-2 border border-blue-200">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🍼</span>
+              <span class="font-semibold text-gray-700">Milk</span>
+            </div>
+            <span id="milk-display" class="font-bold text-gray-800">0</span>
+          </div>
+          <div class="flex justify-between items-center bg-orange-100 rounded-lg p-2 border border-orange-200">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">🥚</span>
+              <span class="font-semibold text-gray-700">Egg</span>
+            </div>
+            <span id="egg-display" class="font-bold text-gray-800">0</span>
+          </div>
+        </div>
+      </div>
       
-      // Rough hitbox (30px radius circle)
-      const dist = Math.sqrt(Math.pow(mouseX - dropScreenPos.x, 2) + Math.pow(mouseY - dropScreenPos.y, 2));
-      
-      if (dist < 30 && !collectedSomething) {
-        // Collect!
-        collectedSomething = true;
-        setInventory(prev => ({ ...prev, [drop.type]: prev[drop.type] + 1 }));
-        showFloatingText(`+1 ${PRICES[drop.type].name}`, mouseX, mouseY, '#3b82f6');
-      } else {
-        newDrops.push(drop); // Keep uncollected ones
-      }
-    }
-
-    state.drops = newDrops;
-  }, [showFloatingText]);
-
-  return (
-    <div className="relative w-full h-screen overflow-hidden font-sans select-none bg-blue-100">
-      {/* Canvas Layer */}
-      <canvas 
-        ref={canvasRef} 
-        className="absolute inset-0 cursor-pointer"
-        onClick={handleCanvasClick}
-      />
-
-      {/* Floating Texts Layer */}
-      {floatingTexts.map(ft => (
-        <div 
-          key={ft.id} 
-          className="absolute font-bold text-xl pointer-events-none drop-shadow-md transition-all duration-1000 ease-out animate-bounce"
-          style={{ 
-            left: ft.x, 
-            top: ft.y - 40, 
-            color: ft.color,
-            textShadow: '0px 2px 4px rgba(0,0,0,0.5)'
-          }}
-        >
-          {ft.text}
-        </div>
-      ))}
-
-      {/* Top UI Layer */}
-      <div className="absolute inset-0 pointer-events-none">
-        
-        {/* Top Left: Profile Info */}
-        <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-auto">
-          <div className="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg flex items-center gap-4">
-            <div className="bg-orange-200 w-12 h-12 rounded-full flex items-center justify-center border-2 border-orange-400">
-              <span className="text-2xl">👨‍🌾</span>
-            </div>
-            <div>
-              <h1 className="font-bold text-gray-800 text-lg leading-tight">Master Farmer</h1>
-              <p className="text-xs text-gray-500 font-semibold">Main Farm</p>
-              <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-green-500 h-2 rounded-full" style={{width: '45%'}}></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Inventory Balance */}
-          <div className="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg w-56">
-            <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wider">INVENTORY</h2>
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center bg-blue-100 rounded-lg p-2 border border-blue-200">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🍼</span>
-                  <span className="font-semibold text-gray-700">Milk</span>
-                </div>
-                <span className="font-bold text-gray-800">{inventory.milk}</span>
-              </div>
-              <div className="flex justify-between items-center bg-orange-100 rounded-lg p-2 border border-orange-200">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🥚</span>
-                  <span className="font-semibold text-gray-700">Egg</span>
-                </div>
-                <span className="font-bold text-gray-800">{inventory.egg}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/80 p-2 rounded-lg text-xs font-medium text-gray-600 shadow max-w-[220px]">
-            <Info size={14} className="inline mr-1 text-blue-500"/>
-            Tip: Animals will drop produce on the grass. Click the items to collect them into your inventory.
-          </div>
-        </div>
-
-        {/* Top Right: Wallet */}
-        <div className="absolute top-4 right-4 pointer-events-auto">
-          <div className="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg flex items-center gap-3">
-            <div className="bg-yellow-100 p-2 rounded-xl">
-              <Coins className="text-yellow-500 drop-shadow-sm" size={24} />
-            </div>
-            <div>
-              <h2 className="text-xs font-bold text-gray-400 tracking-wider">WALLET (COINS)</h2>
-              <p className="font-black text-2xl text-gray-800 tracking-tight">{coins}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Right: Actions Menu */}
-        <div className="absolute bottom-4 right-4 pointer-events-auto">
-          <div className="bg-[#fff9ed] border-2 border-[#e6d5b8] w-64 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-            
-            {/* Tabs */}
-            <div className="flex border-b-2 border-[#e6d5b8]">
-              <button 
-                className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors ${activeTab === 'shop' ? 'bg-[#f4e6cd] text-gray-800' : 'bg-transparent text-gray-500 hover:bg-gray-50'}`}
-                onClick={() => setActiveTab('shop')}
-              >
-                <Store size={16}/> Shop
-              </button>
-              <button 
-                className={`flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors ${activeTab === 'market' ? 'bg-[#f4e6cd] text-gray-800' : 'bg-transparent text-gray-500 hover:bg-gray-50'}`}
-                onClick={() => setActiveTab('market')}
-              >
-                <ShoppingCart size={16}/> Market
-              </button>
-            </div>
-
-            {/* Content Tab */}
-            <div className="p-4 flex flex-col gap-3 h-[280px] overflow-y-auto">
-              
-              {activeTab === 'shop' && (
-                <>
-                  <p className="text-xs text-center text-gray-500 mb-1 font-medium">Buy animals to raise</p>
-                  
-                  {/* Shop Item: Chicken */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center hover:border-orange-300 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-orange-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🐔</div>
-                      <div>
-                        <p className="font-bold text-gray-800">Chicken</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1"><Coins size={10} className="text-yellow-500"/> {PRICES.chicken.cost}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => buyAnimal('chicken')}
-                      className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-transform"
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </div>
-
-                  {/* Shop Item: Cow */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center hover:border-orange-300 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🐄</div>
-                      <div>
-                        <p className="font-bold text-gray-800">Cow</p>
-                        <p className="text-xs text-gray-500 flex items-center gap-1"><Coins size={10} className="text-yellow-500"/> {PRICES.cow.cost}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => buyAnimal('cow')}
-                      className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-transform"
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </div>
-                </>
-              )}
-
-              {activeTab === 'market' && (
-                <>
-                   <p className="text-xs text-center text-gray-500 mb-1 font-medium">Sell inventory items for coins</p>
-                   
-                   {/* Market Item: Egg */}
-                   <div className={`bg-white border rounded-xl p-3 flex justify-between items-center transition-colors ${inventory.egg > 0 ? 'border-orange-300' : 'border-gray-200 opacity-60'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-orange-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🥚</div>
-                      <div>
-                        <p className="font-bold text-gray-800">Sell Egg</p>
-                        <p className="text-xs text-gray-500">Price: <span className="text-yellow-600 font-bold">+{PRICES.egg.sell}</span></p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => sellItem('egg')}
-                      disabled={inventory.egg === 0}
-                      className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-transform"
-                    >
-                      Sell
-                    </button>
-                  </div>
-
-                  {/* Market Item: Milk */}
-                  <div className={`bg-white border rounded-xl p-3 flex justify-between items-center transition-colors ${inventory.milk > 0 ? 'border-blue-300' : 'border-gray-200 opacity-60'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🍼</div>
-                      <div>
-                        <p className="font-bold text-gray-800">Sell Milk</p>
-                        <p className="text-xs text-gray-500">Price: <span className="text-yellow-600 font-bold">+{PRICES.milk.sell}</span></p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => sellItem('milk')}
-                      disabled={inventory.milk === 0}
-                      className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-transform"
-                    >
-                      Sell
-                    </button>
-                  </div>
-                </>
-              )}
-
-            </div>
-          </div>
-        </div>
-
+      <div class="bg-white/80 p-2 rounded-lg text-xs font-medium text-gray-600 shadow max-w-[220px]">
+        <i data-lucide="info" class="w-3.5 h-3.5 inline mr-1 text-blue-500"></i>
+        Tip: Animals will drop produce on the grass. Click the items to collect them into your inventory.
       </div>
     </div>
-  );
-}
+
+    <!-- Top Right: Wallet -->
+    <div class="absolute top-4 right-4 pointer-events-auto">
+      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] p-3 rounded-2xl shadow-lg flex items-center gap-3">
+        <div class="bg-yellow-100 p-2 rounded-xl">
+          <i data-lucide="coins" class="w-6 h-6 text-yellow-500 drop-shadow-sm"></i>
+        </div>
+        <div>
+          <h2 class="text-xs font-bold text-gray-400 tracking-wider">WALLET (COINS)</h2>
+          <p id="coins-display" class="font-black text-2xl text-gray-800 tracking-tight">200</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Right: Actions Menu -->
+    <div class="absolute bottom-4 right-4 pointer-events-auto">
+      <div class="bg-[#fff9ed] border-2 border-[#e6d5b8] w-64 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        
+        <!-- Tabs -->
+        <div class="flex border-b-2 border-[#e6d5b8]">
+          <button id="tab-shop-btn" class="flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-[#f4e6cd] text-gray-800" onclick="switchTab('shop')">
+            <i data-lucide="store" class="w-4 h-4"></i> Shop
+          </button>
+          <button id="tab-market-btn" class="flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-transparent text-gray-500 hover:bg-gray-50" onclick="switchTab('market')">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i> Market
+          </button>
+        </div>
+
+        <!-- Content Tab -->
+        <div class="p-4 flex flex-col gap-3 h-[280px] overflow-y-auto">
+          
+          <!-- SHOP CONTENT -->
+          <div id="shop-content" style="display: block;">
+            <p class="text-xs text-center text-gray-500 mb-1 font-medium">Buy animals to raise</p>
+            
+            <!-- Shop Item: Chicken -->
+            <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center hover:border-orange-300 transition-colors mb-3">
+              <div class="flex items-center gap-3">
+                <div class="bg-orange-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🐔</div>
+                <div>
+                  <p class="font-bold text-gray-800">Chicken</p>
+                  <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="coins" class="w-2.5 h-2.5 text-yellow-500"></i> 50</p>
+                </div>
+              </div>
+              <button onclick="buyAnimal('chicken')" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-transform">
+                <i data-lucide="plus" class="w-4.5 h-4.5"></i>
+              </button>
+            </div>
+
+            <!-- Shop Item: Cow -->
+            <div class="bg-white border border-gray-200 rounded-xl p-3 flex justify-between items-center hover:border-orange-300 transition-colors">
+              <div class="flex items-center gap-3">
+                <div class="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🐄</div>
+                <div>
+                  <p class="font-bold text-gray-800">Cow</p>
+                  <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="coins" class="w-2.5 h-2.5 text-yellow-500"></i> 150</p>
+                </div>
+              </div>
+              <button onclick="buyAnimal('cow')" class="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg shadow-sm active:scale-95 transition-transform">
+                <i data-lucide="plus" class="w-4.5 h-4.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- MARKET CONTENT -->
+          <div id="market-content" style="display: none;">
+             <p class="text-xs text-center text-gray-500 mb-1 font-medium">Sell inventory items for coins</p>
+             
+             <!-- Market Item: Egg -->
+             <div id="sell-egg-container" class="bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60 mb-3">
+              <div class="flex items-center gap-3">
+                <div class="bg-orange-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🥚</div>
+                <div>
+                  <p class="font-bold text-gray-800">Sell Egg</p>
+                  <p class="text-xs text-gray-500">Price: <span class="text-yellow-600 font-bold">+10</span></p>
+                </div>
+              </div>
+              <button id="sell-egg-btn" onclick="sellItem('egg')" disabled class="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-transform">
+                Sell
+              </button>
+            </div>
+
+            <!-- Market Item: Milk -->
+            <div id="sell-milk-container" class="bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60">
+              <div class="flex items-center gap-3">
+                <div class="bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center text-xl">🍼</div>
+                <div>
+                  <p class="font-bold text-gray-800">Sell Milk</p>
+                  <p class="text-xs text-gray-500">Price: <span class="text-yellow-600 font-bold">+30</span></p>
+                </div>
+              </div>
+              <button id="sell-milk-btn" onclick="sellItem('milk')" disabled class="bg-yellow-400 hover:bg-yellow-500 disabled:bg-gray-300 text-gray-800 font-bold px-3 py-2 rounded-lg shadow-sm active:scale-95 transition-transform">
+                Sell
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Inisialisasi ikon Lucide
+    lucide.createIcons();
+
+    // --- GAME CONSTANTS ---
+    const TILE_W = 64;
+    const TILE_H = 32;
+    const GRID_SIZE = 8;
+    const FPS = 60;
+
+    const PRICES = {
+      chicken: { cost: 50, name: 'Chicken' },
+      cow: { cost: 150, name: 'Cow' },
+      egg: { sell: 10, name: 'Egg' },
+      milk: { sell: 30, name: 'Milk' }
+    };
+
+    const TIMERS = {
+      chicken: 8000, // 8 seconds to produce an egg
+      cow: 15000 // 15 seconds to produce milk
+    };
+
+    // --- GAME STATE ---
+    let coins = 200;
+    let inventory = { egg: 0, milk: 0 };
+    
+    const gameState = {
+      animals: [],
+      drops: [],
+      particles: [],
+      lastTime: performance.now(),
+      clouds: [
+        { x: 100, y: 150, speed: 0.3, size: 40, opacity: 0.8 },
+        { x: 500, y: 100, speed: 0.2, size: 60, opacity: 0.6 },
+        { x: 900, y: 200, speed: 0.4, size: 35, opacity: 0.7 },
+        { x: -200, y: 80, speed: 0.15, size: 50, opacity: 0.5 }
+      ]
+    };
+
+    // --- UI HELPERS ---
+    function updateUI() {
+      document.getElementById('coins-display').innerText = coins;
+      document.getElementById('milk-display').innerText = inventory.milk;
+      document.getElementById('egg-display').innerText = inventory.egg;
+
+      // Update Market UI styling based on inventory
+      const eggBtn = document.getElementById('sell-egg-btn');
+      const eggContainer = document.getElementById('sell-egg-container');
+      if (inventory.egg > 0) {
+        eggBtn.disabled = false;
+        eggContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-orange-300 mb-3";
+      } else {
+        eggBtn.disabled = true;
+        eggContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60 mb-3";
+      }
+
+      const milkBtn = document.getElementById('sell-milk-btn');
+      const milkContainer = document.getElementById('sell-milk-container');
+      if (inventory.milk > 0) {
+        milkBtn.disabled = false;
+        milkContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-blue-300";
+      } else {
+        milkBtn.disabled = true;
+        milkContainer.className = "bg-white border rounded-xl p-3 flex justify-between items-center transition-colors border-gray-200 opacity-60";
+      }
+    }
+
+    function switchTab(tab) {
+      if (tab === 'shop') {
+        document.getElementById('shop-content').style.display = 'block';
+        document.getElementById('market-content').style.display = 'none';
+        document.getElementById('tab-shop-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-[#f4e6cd] text-gray-800";
+        document.getElementById('tab-market-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-transparent text-gray-500 hover:bg-gray-50";
+      } else {
+        document.getElementById('shop-content').style.display = 'none';
+        document.getElementById('market-content').style.display = 'block';
+        document.getElementById('tab-shop-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-transparent text-gray-500 hover:bg-gray-50";
+        document.getElementById('tab-market-btn').className = "flex-1 py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors bg-[#f4e6cd] text-gray-800";
+      }
+    }
+
+    function showFloatingText(text, x, y, color = '#22c55e') {
+      const container = document.getElementById('floating-texts-container');
+      const el = document.createElement('div');
+      el.className = 'absolute font-bold text-xl pointer-events-none drop-shadow-md floating-text';
+      el.style.left = `${x}px`;
+      el.style.top = `${y - 40}px`;
+      el.style.color = color;
+      el.innerText = text;
+      container.appendChild(el);
+      
+      setTimeout(() => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 1500);
+    }
+
+    // --- BUY & SELL LOGIC ---
+    window.buyAnimal = function(type) {
+      if (coins >= PRICES[type].cost) {
+        coins -= PRICES[type].cost;
+        updateUI();
+        
+        let startX = Math.random() * (GRID_SIZE - 2) + 1;
+        let startY = Math.random() * (GRID_SIZE - 2) + 1;
+        while (startX < 3 && startY < 3) {
+          startX = Math.random() * (GRID_SIZE - 2) + 1;
+          startY = Math.random() * (GRID_SIZE - 2) + 1;
+        }
+
+        const newAnimal = {
+          id: Math.random().toString(),
+          type: type,
+          x: startX,
+          y: startY,
+          targetX: startX,
+          targetY: startY,
+          speed: type === 'chicken' ? 0.02 : 0.01,
+          lastProduce: performance.now(),
+          zOffset: 0,
+          hopPhase: 0
+        };
+        gameState.animals.push(newAnimal);
+        showFloatingText(`- ${PRICES[type].cost} Coins`, window.innerWidth / 2, window.innerHeight / 2, '#ef4444');
+      } else {
+        alert("Not enough coins!");
+      }
+    };
+
+    window.sellItem = function(item) {
+      if (inventory[item] > 0) {
+        inventory[item] -= 1;
+        coins += PRICES[item].sell;
+        updateUI();
+        showFloatingText(`+ ${PRICES[item].sell} Coins`, window.innerWidth - 200, 100, '#eab308');
+      }
+    };
+
+    // --- ISOMETRIC HELPERS ---
+    const isoToScreen = (isoX, isoY, isoZ, offsetX, offsetY) => {
+      const screenX = (isoX - isoY) * (TILE_W / 2) + offsetX;
+      const screenY = (isoX + isoY) * (TILE_H / 2) - isoZ + offsetY;
+      return { x: screenX, y: screenY };
+    };
+
+    const drawBlock = (ctx, x, y, z, w, l, h, offsetX, offsetY, colors) => {
+      const p0 = isoToScreen(x, y, z + h, offsetX, offsetY);
+      const p1 = isoToScreen(x + w, y, z + h, offsetX, offsetY);
+      const p2 = isoToScreen(x + w, y + l, z + h, offsetX, offsetY);
+      const p3 = isoToScreen(x, y + l, z + h, offsetX, offsetY);
+      
+      const p4 = isoToScreen(x, y + l, z, offsetX, offsetY);
+      const p5 = isoToScreen(x + w, y + l, z, offsetX, offsetY);
+      const p6 = isoToScreen(x + w, y, z, offsetX, offsetY);
+
+      // Top Face
+      ctx.fillStyle = colors.top;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y);
+      ctx.closePath(); ctx.fill();
+
+      // Left Face
+      ctx.fillStyle = colors.left;
+      ctx.beginPath();
+      ctx.moveTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p5.x, p5.y); ctx.lineTo(p4.x, p4.y);
+      ctx.closePath(); ctx.fill();
+
+      // Right Face
+      ctx.fillStyle = colors.right;
+      ctx.beginPath();
+      ctx.moveTo(p2.x, p2.y); ctx.lineTo(p1.x, p1.y); ctx.lineTo(p6.x, p6.y); ctx.lineTo(p5.x, p5.y);
+      ctx.closePath(); ctx.fill();
+    };
+
+    // --- GAME LOOP ---
+    window.onload = () => {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      const resize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      };
+      window.addEventListener('resize', resize);
+      resize();
+
+      // Canvas Click Interaction
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const offsetX = canvas.width / 2;
+        const offsetY = canvas.height / 2 - (GRID_SIZE * TILE_H) / 2 + 100;
+
+        const newDrops = [];
+        let collectedSomething = false;
+
+        for (let i = 0; i < gameState.drops.length; i++) {
+          const drop = gameState.drops[i];
+          const dropScreenPos = isoToScreen(drop.x, drop.y, 5, offsetX, offsetY);
+          const dist = Math.sqrt(Math.pow(mouseX - dropScreenPos.x, 2) + Math.pow(mouseY - dropScreenPos.y, 2));
+          
+          if (dist < 30 && !collectedSomething) {
+            collectedSomething = true;
+            inventory[drop.type] += 1;
+            updateUI();
+            showFloatingText(`+1 ${PRICES[drop.type].name}`, mouseX, mouseY, '#3b82f6');
+          } else {
+            newDrops.push(drop);
+          }
+        }
+        gameState.drops = newDrops;
+      });
+
+      // Render Loop
+      const render = (time) => {
+        const deltaTime = time - gameState.lastTime;
+        gameState.lastTime = time;
+
+        ctx.fillStyle = '#cbe4f9';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        gameState.clouds.forEach(c => {
+          c.x += c.speed;
+          if (c.x > canvas.width + 200) c.x = -200;
+          ctx.fillStyle = `rgba(255, 255, 255, ${c.opacity})`;
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2);
+          ctx.arc(c.x + c.size * 0.8, c.y - c.size * 0.3, c.size * 0.8, 0, Math.PI * 2);
+          ctx.arc(c.x + c.size * 1.6, c.y, c.size * 0.9, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        const offsetX = canvas.width / 2;
+        const offsetY = canvas.height / 2 - (GRID_SIZE * TILE_H) / 2 + 100;
+
+        const baseDepth = 40;
+        drawBlock(ctx, 0, 0, -baseDepth, GRID_SIZE, GRID_SIZE, baseDepth, offsetX, offsetY, {
+          top: '#8b5a2b', left: '#6b4423', right: '#5c3a21'
+        });
+
+        drawBlock(ctx, 0, 0, 0, GRID_SIZE, GRID_SIZE, 5, offsetX, offsetY, {
+          top: '#7ec850', left: '#61a33b', right: '#4d8a2d'
+        });
+
+        const waterZ = 1 + Math.sin(time / 400) * 0.5;
+        drawBlock(ctx, GRID_SIZE, 0, -2, 1.5, GRID_SIZE + 1.5, 5 + waterZ, offsetX, offsetY, {
+          top: '#38bdf8', left: '#0ea5e9', right: '#0284c7'
+        });
+        drawBlock(ctx, 0, GRID_SIZE, -2, GRID_SIZE, 1.5, 5 + waterZ, offsetX, offsetY, {
+          top: '#38bdf8', left: '#0ea5e9', right: '#0284c7'
+        });
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= GRID_SIZE; i++) {
+          const startX = isoToScreen(i, 0, 5, offsetX, offsetY);
+          const endX = isoToScreen(i, GRID_SIZE, 5, offsetX, offsetY);
+          ctx.beginPath(); ctx.moveTo(startX.x, startX.y); ctx.lineTo(endX.x, endX.y); ctx.stroke();
+          
+          const startY = isoToScreen(0, i, 5, offsetX, offsetY);
+          const endY = isoToScreen(GRID_SIZE, i, 5, offsetX, offsetY);
+          ctx.beginPath(); ctx.moveTo(startY.x, startY.y); ctx.lineTo(endY.x, endY.y); ctx.stroke();
+        }
+
+        const drawFence = (ix, iy, iz) => {
+          drawBlock(ctx, ix, iy, iz, 0.2, 0.2, 0.8, offsetX, offsetY, { top:'#d4a373', left:'#c28e5c', right:'#a9794c' });
+        };
+        for(let i=0; i<=GRID_SIZE; i++) {
+          if (i > 2) drawFence(i, 0, 5);
+          if (i > 2) drawFence(0, i, 5);
+          if(i < GRID_SIZE) {
+              drawFence(i, GRID_SIZE-0.2, 5);
+              drawFence(GRID_SIZE-0.2, i, 5);
+          }
+        }
+
+        const renderables = [];
+
+        gameState.animals.forEach(animal => {
+          const dx = animal.targetX - animal.x;
+          const dy = animal.targetY - animal.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          
+          if (dist < 0.1) {
+            let nX = Math.random() * (GRID_SIZE - 2) + 1;
+            let nY = Math.random() * (GRID_SIZE - 2) + 1;
+            while(nX < 3 && nY < 3) {
+              nX = Math.random() * (GRID_SIZE - 2) + 1;
+              nY = Math.random() * (GRID_SIZE - 2) + 1;
+            }
+            animal.targetX = nX;
+            animal.targetY = nY;
+          } else {
+            animal.x += (dx / dist) * animal.speed;
+            animal.y += (dy / dist) * animal.speed;
+          }
+
+          animal.hopPhase += 0.2;
+          animal.zOffset = Math.abs(Math.sin(animal.hopPhase)) * 0.2;
+
+          if (time - animal.lastProduce > TIMERS[animal.type]) {
+            animal.lastProduce = time;
+            gameState.drops.push({
+              id: Math.random().toString(),
+              type: animal.type === 'chicken' ? 'egg' : 'milk',
+              x: animal.x,
+              y: animal.y,
+              spawnTime: time,
+              hoverPhase: Math.random() * 10
+            });
+          }
+          renderables.push({ type: 'animal', data: animal, depth: animal.x + animal.y });
+        });
+
+        gameState.drops.forEach(drop => {
+          drop.hoverPhase += 0.05;
+          renderables.push({ type: 'drop', data: drop, depth: drop.x + drop.y });
+        });
+
+        renderables.push({ type: 'barn', depth: 0.1 });
+        renderables.sort((a, b) => a.depth - b.depth);
+
+        renderables.forEach(item => {
+          if (item.type === 'barn') {
+            drawBlock(ctx, 0.2, 0.2, 5, 2, 2, 2, offsetX, offsetY, { top: '#ef4444', left: '#dc2626', right: '#b91c1c' });
+            drawBlock(ctx, 0, 0, 7, 2.4, 2.4, 1.2, offsetX, offsetY, { top: '#fcd34d', left: '#f59e0b', right: '#d97706' });
+            drawBlock(ctx, 2.2, 0.8, 5, 0.05, 0.8, 1.2, offsetX, offsetY, { top: '#171717', left: '#262626', right: '#404040' });
+          } else if (item.type === 'animal') {
+            const d = item.data;
+            if (d.type === 'chicken') {
+              const aw = 0.4, al = 0.4, ah = 0.5, az = 5 + d.zOffset;
+              drawBlock(ctx, d.x - aw/2, d.y - al/2, az, aw, al, ah, offsetX, offsetY, { top: '#ffffff', left: '#f0f0f0', right: '#e0e0e0' });
+              drawBlock(ctx, d.x - 0.1, d.y - 0.1, az + ah, 0.2, 0.2, 0.2, offsetX, offsetY, { top: '#ef4444', left: '#dc2626', right: '#b91c1c' });
+            } else if (d.type === 'cow') {
+               const sw = 0.8, sl = 0.5, sh = 0.7, sz = 5 + d.zOffset;
+               drawBlock(ctx, d.x - sw/2, d.y - sl/2, sz, sw, sl, sh, offsetX, offsetY, { top: '#ffffff', left: '#f0f0f0', right: '#d4d4d4' });
+               drawBlock(ctx, d.x + sw/4, d.y - sl/4, sz + 0.2, 0.4, 0.4, 0.5, offsetX, offsetY, { top: '#171717', left: '#262626', right: '#404040' });
+            }
+          } else if (item.type === 'drop') {
+             const d = item.data;
+             const hoverZ = Math.sin(d.hoverPhase) * 0.2;
+             if (d.type === 'egg') {
+               drawBlock(ctx, d.x - 0.15, d.y - 0.15, 5 + hoverZ, 0.3, 0.3, 0.3, offsetX, offsetY, { top: '#ffedd5', left: '#fed7aa', right: '#fdba74' });
+             } else if (d.type === 'milk') {
+               drawBlock(ctx, d.x - 0.2, d.y - 0.2, 5 + hoverZ, 0.4, 0.4, 0.6, offsetX, offsetY, { top: '#e0f2fe', left: '#bae6fd', right: '#7dd3fc' });
+               drawBlock(ctx, d.x - 0.1, d.y - 0.1, 5 + hoverZ + 0.6, 0.2, 0.2, 0.1, offsetX, offsetY, { top: '#ef4444', left: '#dc2626', right: '#b91c1c' });
+             }
+          }
+        });
+
+        requestAnimationFrame(render);
+      };
+
+      requestAnimationFrame(render);
+    };
+  </script>
+</body>
+</html>
