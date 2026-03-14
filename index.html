@@ -207,7 +207,11 @@
       cowIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi.png',
       cowWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi%20walk.png',
       milk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/kotak.png',
-      skull: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/skull.png'
+      skull: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/skull.png',
+      fence: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/pagar.png',
+      henIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_idle.png',
+      henWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_walk.png',
+      egg: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/telur.png'
     };
     const IMAGES = {};
 
@@ -790,6 +794,33 @@
               }
               ctx.restore();
               
+            } else if (a.type === 'chicken' && IMAGES.henIdle && IMAGES.henWalk) {
+              // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah ayam
+              const screenGround = isoToScreen(a.x, a.y, 0);
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+              ctx.beginPath();
+              ctx.ellipse(screenGround.x, screenGround.y, 12, 6, 0, 0, Math.PI * 2);
+              ctx.fill();
+
+              const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
+              const img = isMoving ? IMAGES.henWalk : IMAGES.henIdle;
+              
+              // Mengira jumlah frame secara automatik berdasarkan ukuran lebar & tinggi gambar
+              const frameSize = img.height > 0 ? img.height : 100;
+              const frames = img.width > 0 ? Math.floor(img.width / frameSize) : 1;
+              const frameIdx = Math.floor(time / 150) % (frames > 0 ? frames : 1);
+              
+              ctx.save();
+              // Jika ayam berjalan ke kanan, balikkan (flip) sprite-nya
+              if (a.targetX > a.x) { 
+                ctx.translate(screen.x, screen.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(img, frameIdx * frameSize, 0, frameSize, frameSize, -25, -40, 50, 50);
+              } else {
+                ctx.drawImage(img, frameIdx * frameSize, 0, frameSize, frameSize, screen.x - 25, screen.y - 40, 50, 50);
+              }
+              ctx.restore();
+              
             } else {
               const sz = a.type === 'chicken' ? 0.4 : 0.7;
               drawCube(a.x - sz/2, a.y - sz/2, a.hop * 10, sz, sz, sz, { top: ITEMS[a.type].color, left: '#ccc', right: '#bbb' });
@@ -815,7 +846,18 @@
             ctx.fill();
 
             ctx.drawImage(IMAGES.milk, screen.x - 15, screen.y - 20, 30, 30);
+          } else if (d.type === 'egg' && IMAGES.egg) {
+            // Tambahkan bayangan bentuk oval isometrik di bawah telur
+            const screenGround = isoToScreen(d.x, d.y, 0);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.ellipse(screenGround.x, screenGround.y, 10, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Render gambar telur (ukurannya sedikit lebih kecil dari susu)
+            ctx.drawImage(IMAGES.egg, screen.x - 12, screen.y - 15, 24, 24);
           } else {
+            // Fallback jika gambar gagal dimuat atau untuk item lain (seperti wol)
             const color = d.type === 'egg' ? { top: '#fff', left: '#eee', right: '#ddd' } : { top: '#f1f5f9', left: '#e2e8f0', right: '#cbd5e1' };
             drawCube(d.x - 0.2, d.y - 0.2, d.bounce * 5, 0.4, 0.4, 0.4, color);
           }
