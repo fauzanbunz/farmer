@@ -209,8 +209,8 @@
       milk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/kotak.png',
       skull: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/skull.png',
       fence: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/pagar.png',
-      henIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_idle.png',
-      henWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_walk.png',
+      henIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_idle.png', // Nama file diperbaiki (dengan _)
+      henWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_walk.png', // Nama file diperbaiki (dengan _)
       egg: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/telur.png',
       sheepIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/dombaidle.png',
       sheepWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/domba_walk.png',
@@ -800,6 +800,28 @@
             } else if (a.type === 'chicken' && IMAGES.henIdle && IMAGES.henWalk) {
               // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah ayam
               const screenGround = isoToScreen(a.x, a.y, 0);
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+              ctx.beginPath();
+              ctx.ellipse(screenGround.x, screenGround.y, 12, 6, 0, 0, Math.PI * 2);
+              ctx.fill();
+
+              const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
+              const frames = 2; // Animasi ayam diset ke 2 frame
+              const frameIdx = Math.floor(time / 150) % frames; // Animasi ayam sedikit lebih cepat (150ms)
+              const img = isMoving ? IMAGES.henWalk : IMAGES.henIdle;
+              
+              ctx.save();
+              // Jika ayam berjalan ke kanan, balikkan (flip) sprite-nya
+              if (a.targetX > a.x) { 
+                ctx.translate(screen.x, screen.y);
+                ctx.scale(-1, 1);
+                // Ukuran frame gambar 300x300, dirender dengan ukuran 50x50 agar pas
+                ctx.drawImage(img, frameIdx * 300, 0, 300, 300, -25, -35, 50, 50);
+              } else {
+                ctx.drawImage(img, frameIdx * 300, 0, 300, 300, screen.x - 25, screen.y - 35, 50, 50);
+              }
+              ctx.restore();
+              
             } else if (a.type === 'sheep' && IMAGES.sheepIdle && IMAGES.sheepWalk) {
               // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah domba
               const screenGround = isoToScreen(a.x, a.y, 0);
