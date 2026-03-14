@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulasi Peternak Isometrik - Level Up Effect</title>
+  <title>Simulasi Peternak Isometrik - Extreme Hard Mode</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -16,16 +16,9 @@
       transition: background-color 2s ease;
     }
 
-    .night-mode {
-      background-color: #1e293b !important;
-    }
-
-    .rain-mode {
-      background-color: #64748b !important;
-    }
-    .night-mode.rain-mode {
-      background-color: #0f172a !important;
-    }
+    .night-mode { background-color: #1e293b !important; }
+    .rain-mode { background-color: #64748b !important; }
+    .night-mode.rain-mode { background-color: #0f172a !important; }
 
     @keyframes float-up {
       0% { transform: translateY(0); opacity: 1; }
@@ -43,20 +36,14 @@
       border: 3px solid #e2e8f0;
     }
 
-    canvas {
-      image-rendering: pixelated;
-    }
+    canvas { image-rendering: pixelated; }
 
-    /* Animasi Pop-in */
     @keyframes pop-in {
       0% { transform: scale(0.9); opacity: 0; }
       100% { transform: scale(1); opacity: 1; }
     }
-    .modal-content {
-      animation: pop-in 0.2s ease-out forwards;
-    }
+    .modal-content { animation: pop-in 0.2s ease-out forwards; }
 
-    /* Gaya khusus untuk Splash Level Up */
     #levelup-splash h2 {
       text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 5px 15px rgba(0,0,0,0.5);
     }
@@ -64,10 +51,9 @@
 </head>
 <body class="relative w-full h-screen overflow-hidden select-none">
 
-  <!-- Game Canvas -->
   <canvas id="gameCanvas" class="absolute inset-0 cursor-crosshair"></canvas>
 
-  <!-- Level Up Splash Screen Overlay -->
+  <!-- Level Up Splash Overlay -->
   <div id="levelup-splash" class="fixed inset-0 flex flex-col items-center justify-center z-[200] pointer-events-none hidden opacity-0 transition-opacity duration-700">
     <img src="https://raw.githubusercontent.com/fauzanbunz/farmer/main/viaductk-particle-18611.gif" class="absolute w-full h-full object-cover mix-blend-screen opacity-70" alt="Partikel Naik Level" />
     <div class="relative flex flex-col items-center text-center px-4">
@@ -79,25 +65,23 @@
     </div>
   </div>
 
-  <!-- Notification System -->
   <div id="toast-container" class="absolute top-24 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- UI Navbar -->
   <div class="absolute top-0 left-0 w-full pointer-events-none z-10 p-4 flex flex-wrap md:flex-nowrap justify-between items-start gap-4">
     
-    <!-- Profil & XP -->
     <div class="pointer-events-auto ui-panel rounded-2xl p-2.5 shadow-lg flex items-center gap-3 w-full md:w-auto">
       <div class="relative">
         <div class="bg-amber-100 w-12 h-12 rounded-xl flex items-center justify-center border-2 border-amber-400 text-2xl shadow-sm">👨‍🌾</div>
         <div id="level-badge" class="absolute -bottom-1 -right-2 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white">LV 1</div>
       </div>
-      <div class="w-40">
+      <div class="w-44">
         <h1 id="player-title" class="font-bold text-slate-800 text-sm truncate">Peternak Pemula</h1>
         <div class="mt-1 w-full bg-slate-200 rounded-full h-2 overflow-hidden shadow-inner">
           <div id="xp-bar" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
         </div>
         <div class="flex justify-between items-center mt-0.5">
-          <p class="text-[9px] text-slate-500 font-bold"><span id="xp-text">0/100</span> XP</p>
+          <p class="text-[9px] text-slate-500 font-bold"><span id="xp-text">0/1000</span> XP</p>
           <p class="text-[9px] text-blue-600 font-bold flex items-center gap-1">
             <i data-lucide="paw-print" class="w-2 h-2"></i> <span id="animal-count">0</span> Hewan
           </p>
@@ -105,7 +89,6 @@
       </div>
     </div>
 
-    <!-- Tombol Navigasi Menu -->
     <div class="pointer-events-auto flex gap-2 w-full md:w-auto justify-center">
       <button onclick="openModal('shop-modal')" class="ui-panel hover:bg-white text-blue-600 font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
         <i data-lucide="store" class="w-5 h-5"></i> <span class="hidden sm:inline">Shop</span>
@@ -118,7 +101,6 @@
       </button>
     </div>
 
-    <!-- Pakan & Koin -->
     <div class="pointer-events-auto flex gap-2 w-full md:w-auto justify-end">
       <div class="ui-panel rounded-2xl py-1 px-3 shadow-lg flex items-center gap-2">
         <span class="text-xl">🌾</span>
@@ -141,7 +123,7 @@
     </div>
   </div>
 
-  <!-- MODALS CONTAINER -->
+  <!-- MODALS -->
   <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center pointer-events-auto opacity-0 transition-opacity duration-300">
     <div id="shop-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
       <div class="bg-blue-500 p-4 flex justify-between items-center text-white">
@@ -187,10 +169,11 @@
   <script>
     const TILE_W = 64, TILE_H = 32, GRID = 8;
 
+    // EXTREME MODE: Produksi tiap 180 detik (3 menit)
     const ITEMS = {
-      chicken: { price: 100, prod: 'egg', rate: 10000, color: '#ffffff', label: 'Ayam' },
-      cow: { price: 250, prod: 'milk', rate: 20000, color: '#f3f4f6', label: 'Sapi' },
-      sheep: { price: 400, prod: 'wool', rate: 30000, color: '#e5e7eb', label: 'Domba' }
+      chicken: { price: 100, prod: 'egg', rate: 180000, color: '#ffffff', label: 'Ayam' },
+      cow: { price: 250, prod: 'milk', rate: 180000, color: '#f3f4f6', label: 'Sapi' },
+      sheep: { price: 400, prod: 'wool', rate: 180000, color: '#e5e7eb', label: 'Domba' }
     };
 
     const MARKET = { egg: 15, milk: 40, wool: 100, feed: 5 };
@@ -201,7 +184,6 @@
       "Raja Panen", "Miliarder Desa", "Raja Peternakan", "Penguasa Agrikultur", "Legenda Peternak"
     ];
 
-    // Daftar Gambar Barn sesuai urutan level (1-13)
     const BARN_FILES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png', '7.png', '8.png', '9.png', '10.png', '11.png', '12.png', '13.png'];
 
     const ASSETS = {
@@ -227,7 +209,8 @@
       inventory: { egg: 0, milk: 0, wool: 0 },
       animals: [], drops: [], clouds: [], stars: [], rainDrops: [],
       lastTime: 0, timeOfDay: 0, weather: 'clear', lastWeatherChange: 0, lightningFlash: 0,
-      comet: { active: false, x: 0, y: 0, vx: 0, vy: 0 }
+      comet: { active: false, x: 0, y: 0, vx: 0, vy: 0 },
+      shake: 0, disasterCooldown: performance.now() + 60000, meteorFlash: 0
     };
 
     const canvas = document.getElementById('gameCanvas');
@@ -328,34 +311,79 @@
       setTimeout(() => { 
         div.classList.add('translate-y-4', 'opacity-0');
         setTimeout(() => div.remove(), 300);
-      }, 2500);
+      }, 3500);
     }
 
     function triggerLevelUpSplash(level) {
       const splash = document.getElementById('levelup-splash');
       const detail = document.getElementById('levelup-detail');
       const titleText = document.getElementById('levelup-title-text');
-      
       detail.innerText = `SEKARANG LEVEL ${level}`;
       titleText.innerText = TITLES[Math.min(level - 1, TITLES.length - 1)];
-      
       splash.classList.remove('hidden');
       setTimeout(() => splash.classList.add('opacity-100'), 10);
-      
-      // Sembunyikan setelah 5 detik
       setTimeout(() => {
         splash.classList.replace('opacity-100', 'opacity-0');
         setTimeout(() => splash.classList.add('hidden'), 700);
       }, 5000);
     }
 
+    /**
+     * Menambahkan teks animasi melayang saat memanen item
+     */
     function addFloatingText(text, x, y, color = '#ffffff') {
       const div = document.createElement('div');
       div.className = 'absolute font-black text-xl pointer-events-none float-msg z-[200]';
-      div.style.left = `${x}px`; div.style.top = `${y}px`; div.style.color = color;
+      div.style.left = `${x}px`;
+      div.style.top = `${y}px`;
+      div.style.color = color;
       div.innerText = text;
       document.body.appendChild(div);
+      // Hapus elemen setelah animasi selesai (1.2 detik)
       setTimeout(() => div.remove(), 1200);
+    }
+
+    // Bencana Alam: Earthquake & Meteor
+    function triggerDisaster(type) {
+      state.shake = 100; // Mulai guncangan layar
+      const aliveAnimals = state.animals.filter(a => !a.isDead);
+      if (aliveAnimals.length > 0) {
+        const killCount = Math.floor(Math.random() * 3) + 1; // 1-3 hewan mati
+        for (let i = 0; i < Math.min(killCount, aliveAnimals.length); i++) {
+          const target = aliveAnimals[Math.floor(Math.random() * aliveAnimals.length)];
+          target.isDead = true;
+          target.deathTime = performance.now();
+        }
+      }
+
+      if (type === 'quake') {
+        notify("Bencana! GEMPA BUMI melanda peternakan!", "error");
+      } else {
+        state.meteorFlash = 1.0;
+        notify("Bencana! METEOR jatuh di peternakan!", "error");
+      }
+      updateUI();
+    }
+
+    function addXP(amount) {
+      if (state.level >= 13) return;
+      state.xp += amount;
+      let xpReq = state.level * 1000; // Progres XP diperlambat drastis
+      let leveledUp = false;
+      while (state.xp >= xpReq && state.level < 13) {
+        state.level++;
+        state.xp -= xpReq;
+        xpReq = state.level * 1000;
+        if (state.level === 13) state.xp = 0;
+        leveledUp = true;
+        if (state.level % 3 === 0) setTimeout(() => {
+           notify("Wabah Virus menyerang di Level " + state.level, "error");
+           state.animals.forEach(a => { if(!a.isDead) { a.isDead = true; a.deathTime = performance.now(); }});
+           updateUI();
+        }, 2000);
+      }
+      if (leveledUp) triggerLevelUpSplash(state.level);
+      updateUI();
     }
 
     function spawnAnimal(type, x, y) {
@@ -366,43 +394,20 @@
       updateUI();
     }
 
-    function addXP(amount) {
-      if (state.level >= 13) return;
-      state.xp += amount;
-      let xpReq = state.level * 100;
-      
-      let leveledUp = false;
-      while (state.xp >= xpReq && state.level < 13) {
-        state.level++;
-        state.xp -= xpReq;
-        xpReq = state.level * 100;
-        if (state.level === 13) state.xp = 0;
-        leveledUp = true;
-      }
-
-      if (leveledUp) {
-        triggerLevelUpSplash(state.level);
-        notify(`🎉 Level Up! Sekarang Level ${state.level}`, 'success');
-      }
-      updateUI();
-    }
-
     function buyAnimal(type) {
       if (state.coins >= ITEMS[type].price) {
         state.coins -= ITEMS[type].price;
         spawnAnimal(type, Math.random() * 4 + 3.5, Math.random() * 4 + 3.5);
         updateUI();
         notify(`Membeli ${ITEMS[type].label}!`, 'success');
-      } else {
-        notify("Koin tidak cukup!", "error");
-      }
+      } else { notify("Koin tidak cukup!", "error"); }
     }
 
     function sellItem(key) {
       if (state.inventory[key] > 0) {
         state.inventory[key]--;
         state.coins += MARKET[key];
-        addXP(20);
+        addXP(3); // XP diperkecil
         updateUI();
       }
     }
@@ -413,9 +418,7 @@
         state.feed += 5;
         updateUI();
         notify("Membeli 5 unit Pakan", "success");
-      } else {
-        notify("Koin tidak cukup!", "error");
-      }
+      } else { notify("Koin tidak cukup!", "error"); }
     }
 
     function feedAll() {
@@ -424,26 +427,20 @@
       if (state.feed >= hungry.length) {
         state.feed -= hungry.length;
         hungry.forEach(a => a.hunger = 1.0);
-        addXP(5 * hungry.length);
+        addXP(1); // XP diperkecil
         notify(`Memberi makan ${hungry.length} hewan!`, 'success');
         updateUI();
-      } else {
-        notify("Stok pakan tidak cukup!", "error");
-      }
+      } else { notify("Stok pakan tidak cukup!", "error"); }
     }
 
     function updateUI() {
-      const safeEl = (id, val) => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = val;
-      };
-
+      const safeEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
       safeEl('coin-count', Math.floor(state.coins));
       safeEl('feed-count', state.feed);
       safeEl('level-badge', `LV ${state.level}`);
       safeEl('player-title', TITLES[Math.min(state.level - 1, TITLES.length - 1)]);
       
-      const xpReq = state.level * 100;
+      const xpReq = state.level * 1000;
       const bar = document.getElementById('xp-bar');
       const txt = document.getElementById('xp-text');
       if (state.level >= 13) {
@@ -453,43 +450,29 @@
         if(bar) bar.style.width = `${(state.xp / xpReq) * 100}%`;
         if(txt) txt.innerText = `${state.xp}/${xpReq}`;
       }
-      
-      const aliveCount = state.animals.filter(a => !a.isDead).length;
-      safeEl('animal-count', aliveCount);
+      safeEl('animal-count', state.animals.filter(a => !a.isDead).length);
 
-      // Render Modal Shop
       const shop = document.getElementById('shop-content');
-      if (shop) {
-        shop.innerHTML = Object.entries(ITEMS).map(([key, item]) => `
-          <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
-            <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">
-                ${key === 'chicken' ? '🐔' : key === 'cow' ? '🐄' : '🐑'}
-              </div>
-              <div><p class="font-bold text-slate-800">${item.label}</p><p class="text-xs font-bold text-amber-600">${item.price} Koin</p></div>
-            </div>
-            <button onclick="buyAnimal('${key}')" class="bg-blue-500 text-white p-2.5 rounded-xl transition-transform active:scale-90"><i data-lucide="plus" class="w-5 h-5"></i></button>
-          </div>`).join('');
-      }
+      if (shop) shop.innerHTML = Object.entries(ITEMS).map(([key, item]) => `
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">${key==='chicken'?'🐔':key==='cow'?'🐄':'🐑'}</div>
+            <div><p class="font-bold text-slate-800">${item.label}</p><p class="text-xs font-bold text-amber-600">${item.price} Koin</p></div>
+          </div>
+          <button onclick="buyAnimal('${key}')" class="bg-blue-500 text-white p-2.5 rounded-xl"><i data-lucide="plus" class="w-5 h-5"></i></button>
+        </div>`).join('');
 
-      // Render Modal Market
       const market = document.getElementById('market-content');
-      if (market) {
-        market.innerHTML = Object.entries(state.inventory).map(([key, count]) => `
-          <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border ${count > 0 ? 'border-amber-200' : 'border-slate-100'}">
-            <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">
-                ${key === 'egg' ? '🥚' : key === 'milk' ? '🍼' : '🧶'}
-              </div>
-              <div><p class="font-bold text-slate-800 capitalize">${key}</p><p class="text-xs">Stok: ${count}</p></div>
-            </div>
-            <button onclick="sellItem('${key}')" ${count <= 0 ? 'disabled' : ''} class="bg-amber-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs disabled:opacity-30">Jual +$${MARKET[key]}</button>
-          </div>`).join('');
-      }
+      if (market) market.innerHTML = Object.entries(state.inventory).map(([key, count]) => `
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border ${count > 0 ? 'border-amber-200' : 'border-slate-100'}">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">${key==='egg'?'🥚':key==='milk'?'🍼':'🧶'}</div>
+            <div><p class="font-bold text-slate-800 capitalize">${key}</p><p class="text-xs">Stok: ${count}</p></div>
+          </div>
+          <button onclick="sellItem('${key}')" ${count <= 0 ? 'disabled' : ''} class="bg-amber-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs disabled:opacity-30">Jual +$${MARKET[key]}</button>
+        </div>`).join('');
 
-      safeEl('store-milk', state.inventory.milk);
-      safeEl('store-egg', state.inventory.egg);
-      safeEl('store-wool', state.inventory.wool);
+      safeEl('store-milk', state.inventory.milk); safeEl('store-egg', state.inventory.egg); safeEl('store-wool', state.inventory.wool);
       lucide.createIcons();
     }
 
@@ -501,6 +484,14 @@
     function gameLoop(time) {
       const dt = time - state.lastTime;
       state.lastTime = time;
+
+      // Disaster Logic
+      if (time > state.disasterCooldown) {
+        if (Math.random() < 0.0001) {
+          triggerDisaster(Math.random() > 0.5 ? 'quake' : 'meteor');
+          state.disasterCooldown = time + 60000; // Minimal 1 menit jeda antar bencana
+        }
+      }
 
       state.timeOfDay = (time / 120000) % 1; 
       const isNight = state.timeOfDay > 0.6;
@@ -514,10 +505,16 @@
 
       if (state.weather === 'rain' && Math.random() < 0.005) state.lightningFlash = 0.8;
       state.lightningFlash = Math.max(0, state.lightningFlash - 0.05);
+      state.meteorFlash = Math.max(0, state.meteorFlash - 0.02);
+
+      ctx.save();
+      if (state.shake > 0) {
+        ctx.translate((Math.random()-0.5) * 10, (Math.random()-0.5) * 10);
+        state.shake--;
+      }
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Render Bintang & Komet
       if (isNight) {
         state.stars.forEach(s => {
           ctx.globalAlpha = 0.1 + Math.abs(Math.sin(time * s.speed + s.phase)) * 0.9 * (state.weather === 'rain' ? 0.2 : 1);
@@ -535,7 +532,12 @@
         }
       }
 
-      // Tanah & Sungai
+      ctx.fillStyle = state.weather === 'rain' ? 'rgba(112,128,144,0.5)' : 'rgba(255,255,255,0.3)';
+      state.clouds.forEach(c => {
+        c.x = (c.x + c.speed) % (canvas.width + 200);
+        ctx.beginPath(); ctx.arc(c.x-100, c.y, 40*c.scale, 0, Math.PI*2); ctx.fill();
+      });
+
       for (let sum = 0; sum <= GRID * 2; sum++) {
         for (let i = 0; i <= GRID; i++) {
           let j = sum - i;
@@ -550,11 +552,9 @@
         }
       }
 
-      // Entities
       const renderList = [];
       renderList.push({ type: 'barn', x: 1.5, y: 1.5, depth: 4.5 });
 
-      // Animals Logic
       state.animals.forEach(a => {
         if (!a.isDead) {
           const dx = a.targetX - a.x, dy = a.targetY - a.y, dist = Math.sqrt(dx*dx + dy*dy);
@@ -567,7 +567,7 @@
             a.x += (dx/dist) * 0.008; a.y += (dy/dist) * 0.008;
           }
           a.hop = (dist >= 0.1) ? Math.abs(Math.sin(time/200)) * 0.2 : 0;
-          const hungerRate = (state.weather === 'rain') ? 120000 : 300000;
+          const hungerRate = (state.weather === 'rain') ? 90000 : 180000;
           a.hunger = Math.max(0, a.hunger - (dt / hungerRate));
 
           if (a.hunger <= 0) {
@@ -575,12 +575,14 @@
             notify(`${ITEMS[a.type].label} mati kelaparan!`, 'error');
           } else if (time - a.lastProd > ITEMS[a.type].rate) {
             a.lastProd = time;
-            state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, bounce: 0 });
+            state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, bounce: 0, spawnTime: time });
           }
         }
         renderList.push({ type: 'animal', data: a, depth: a.x + a.y });
       });
 
+      // Produksi Hilang dalam 1 Menit
+      state.drops = state.drops.filter(d => time - d.spawnTime < 60000);
       state.drops.forEach(d => {
         d.bounce = Math.sin(time/300) * 2;
         renderList.push({ type: 'drop', data: d, depth: d.x + d.y });
@@ -599,12 +601,12 @@
         } else if (obj.type === 'animal') {
           const a = obj.data;
           const sG = isoToScreen(a.x, a.y, 0);
-          ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(sG.x, sG.y, a.type === 'cow' ? 22 : 12, a.type === 'cow' ? 11 : 6, 0, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(sG.x, sG.y, a.type === 'cow' ? 22 : 8, a.type === 'cow' ? 11 : 4, 0, 0, Math.PI*2); ctx.fill();
 
           if (a.isDead) {
             const fade = Math.max(0, 1 - (time - a.deathTime - 60000)/5000);
             ctx.globalAlpha = Math.min(1, fade);
-            if(IMAGES.skull) ctx.drawImage(IMAGES.skull, sG.x - 20, sG.y - 30, 40, 40);
+            if(IMAGES.skull) ctx.drawImage(IMAGES.skull, sG.x - 15, sG.y - 25, 30, 30);
             ctx.globalAlpha = 1;
           } else {
             const s = isoToScreen(a.x, a.y, a.hop * 10);
@@ -612,8 +614,8 @@
             let img, fSz = 300, frames = 2, drawSz = 50;
 
             if (a.type === 'cow') { img = isWalk ? IMAGES.cowWalk : IMAGES.cowIdle; fSz = 500; frames = isWalk ? 2 : 4; drawSz = 80; }
-            else if (a.type === 'chicken') { img = isWalk ? IMAGES.henWalk : IMAGES.henIdle; }
-            else { img = isWalk ? IMAGES.sheepWalk : IMAGES.sheepIdle; drawSz = 70; }
+            else if (a.type === 'chicken') { img = isWalk ? IMAGES.henWalk : IMAGES.henIdle; drawSz = 25; } 
+            else { img = isWalk ? IMAGES.sheepWalk : IMAGES.sheepIdle; drawSz = 52; } // Ukuran Domba diperbesar 0.5x
 
             if (img && img.width > 0) {
               const fIdx = Math.floor(time / 150) % frames;
@@ -622,7 +624,6 @@
               else { ctx.drawImage(img, fIdx*fSz, 0, fSz, fSz, s.x - drawSz/2, s.y - drawSz*0.75, drawSz, drawSz); }
               ctx.restore();
             }
-            // Hunger Bar
             ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(s.x - 10, s.y - drawSz*0.8, 20, 3);
             ctx.fillStyle = a.hunger > 0.3 ? '#22c55e' : '#ef4444'; ctx.fillRect(s.x - 10, s.y - drawSz*0.8, 20*a.hunger, 3);
           }
@@ -634,7 +635,6 @@
         }
       });
 
-      // Rain & Lightning
       if (state.weather === 'rain') {
         ctx.strokeStyle = 'rgba(173,216,230,0.4)'; ctx.lineWidth = 1; ctx.beginPath();
         state.rainDrops.forEach(r => {
@@ -644,7 +644,9 @@
         ctx.stroke();
       }
       if (state.lightningFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${state.lightningFlash})`; ctx.fillRect(0,0,canvas.width,canvas.height); }
+      if (state.meteorFlash > 0) { ctx.fillStyle = `rgba(255,0,0,${state.meteorFlash * 0.3})`; ctx.fillRect(0,0,canvas.width,canvas.height); }
 
+      ctx.restore();
       requestAnimationFrame(gameLoop);
     }
 
@@ -655,7 +657,7 @@
       state.drops = state.drops.filter(d => {
         const s = isoToScreen(d.x, d.y, 10);
         if (Math.sqrt((mx-s.x)**2 + (my-s.y)**2) < 30 && !col) {
-          col = true; state.inventory[d.type]++; addXP(10);
+          col = true; state.inventory[d.type]++; addXP(1); // Panen dapat 1 XP
           addFloatingText(`+1 ${d.type}`, mx, my, '#3b82f6');
           return false;
         }
