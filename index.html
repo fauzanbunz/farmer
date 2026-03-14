@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Isometric Farm Pro</title>
+  <title>Simulasi Peternak Isometrik - Level Up Effect</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -20,7 +20,6 @@
       background-color: #1e293b !important;
     }
 
-    /* Tambahan efek langit mendung saat hujan */
     .rain-mode {
       background-color: #64748b !important;
     }
@@ -48,13 +47,18 @@
       image-rendering: pixelated;
     }
 
-    /* Animasi Pop-up */
+    /* Animasi Pop-in */
     @keyframes pop-in {
       0% { transform: scale(0.9); opacity: 0; }
       100% { transform: scale(1); opacity: 1; }
     }
     .modal-content {
       animation: pop-in 0.2s ease-out forwards;
+    }
+
+    /* Gaya khusus untuk Splash Level Up */
+    #levelup-splash h2 {
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 5px 15px rgba(0,0,0,0.5);
     }
   </style>
 </head>
@@ -63,28 +67,45 @@
   <!-- Game Canvas -->
   <canvas id="gameCanvas" class="absolute inset-0 cursor-crosshair"></canvas>
 
+  <!-- Level Up Splash Screen Overlay -->
+  <div id="levelup-splash" class="fixed inset-0 flex flex-col items-center justify-center z-[200] pointer-events-none hidden opacity-0 transition-opacity duration-700">
+    <img src="https://raw.githubusercontent.com/fauzanbunz/farmer/main/viaductk-particle-18611.gif" class="absolute w-full h-full object-cover mix-blend-screen opacity-70" alt="Partikel Naik Level" />
+    <div class="relative flex flex-col items-center text-center px-4">
+      <h2 class="text-7xl md:text-9xl font-black text-white animate-bounce tracking-tighter">LEVEL UP!</h2>
+      <p id="levelup-detail" class="text-3xl md:text-5xl font-black text-yellow-300 drop-shadow-lg -mt-4 uppercase italic">SEKARANG LEVEL 2</p>
+      <div class="mt-4 bg-white/20 backdrop-blur-md px-6 py-2 rounded-full border-2 border-white/50">
+        <p id="levelup-title-text" class="text-white font-bold text-xl md:text-2xl">Peternak Magang</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification System -->
   <div id="toast-container" class="absolute top-24 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- UI Navbar (All at Top) -->
+  <!-- UI Navbar -->
   <div class="absolute top-0 left-0 w-full pointer-events-none z-10 p-4 flex flex-wrap md:flex-nowrap justify-between items-start gap-4">
     
-    <!-- Top Left: Profile & XP -->
+    <!-- Profil & XP -->
     <div class="pointer-events-auto ui-panel rounded-2xl p-2.5 shadow-lg flex items-center gap-3 w-full md:w-auto">
       <div class="relative">
         <div class="bg-amber-100 w-12 h-12 rounded-xl flex items-center justify-center border-2 border-amber-400 text-2xl shadow-sm">👨‍🌾</div>
         <div id="level-badge" class="absolute -bottom-1 -right-2 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white">LV 1</div>
       </div>
-      <div class="w-32">
+      <div class="w-40">
         <h1 id="player-title" class="font-bold text-slate-800 text-sm truncate">Peternak Pemula</h1>
         <div class="mt-1 w-full bg-slate-200 rounded-full h-2 overflow-hidden shadow-inner">
           <div id="xp-bar" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
         </div>
-        <p class="text-[9px] text-slate-500 mt-0.5 font-bold"><span id="xp-text">0/100</span> XP</p>
+        <div class="flex justify-between items-center mt-0.5">
+          <p class="text-[9px] text-slate-500 font-bold"><span id="xp-text">0/100</span> XP</p>
+          <p class="text-[9px] text-blue-600 font-bold flex items-center gap-1">
+            <i data-lucide="paw-print" class="w-2 h-2"></i> <span id="animal-count">0</span> Hewan
+          </p>
+        </div>
       </div>
     </div>
 
-    <!-- Top Center: Menu Action Buttons -->
+    <!-- Tombol Navigasi Menu -->
     <div class="pointer-events-auto flex gap-2 w-full md:w-auto justify-center">
       <button onclick="openModal('shop-modal')" class="ui-panel hover:bg-white text-blue-600 font-bold py-2.5 px-4 rounded-2xl shadow-lg flex items-center gap-2 transition-transform active:scale-95">
         <i data-lucide="store" class="w-5 h-5"></i> <span class="hidden sm:inline">Shop</span>
@@ -97,21 +118,19 @@
       </button>
     </div>
 
-    <!-- Top Right: Currencies & Feed -->
+    <!-- Pakan & Koin -->
     <div class="pointer-events-auto flex gap-2 w-full md:w-auto justify-end">
-      <!-- Feed UI -->
       <div class="ui-panel rounded-2xl py-1 px-3 shadow-lg flex items-center gap-2">
         <span class="text-xl">🌾</span>
         <div class="text-center">
           <p class="text-[9px] font-bold text-slate-400 uppercase leading-none">Pakan</p>
           <p class="font-bold text-slate-800 leading-tight"><span id="feed-count">10</span></p>
         </div>
-        <button onclick="feedAll()" class="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-transform active:scale-90 ml-1 shadow" title="Beri Makan Semua">
+        <button onclick="feedAll()" class="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-lg transition-transform active:scale-90 ml-1 shadow">
           <i data-lucide="heart" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <!-- Wallet UI -->
       <div class="ui-panel rounded-2xl py-1 px-4 shadow-lg flex items-center gap-2">
         <i data-lucide="coins" class="w-6 h-6 text-yellow-500 drop-shadow-sm"></i>
         <div>
@@ -124,63 +143,48 @@
 
   <!-- MODALS CONTAINER -->
   <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-50 flex items-center justify-center pointer-events-auto opacity-0 transition-opacity duration-300">
-    
-    <!-- SHOP MODAL -->
     <div id="shop-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
       <div class="bg-blue-500 p-4 flex justify-between items-center text-white">
         <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="store"></i> Beli Hewan Ternak</h2>
         <button onclick="closeModal()" class="hover:bg-white/20 p-1 rounded-full"><i data-lucide="x"></i></button>
       </div>
-      <div id="shop-content" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-        <!-- Injected via JS -->
-      </div>
+      <div id="shop-content" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto"></div>
     </div>
-
-    <!-- MARKET MODAL -->
     <div id="market-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
       <div class="bg-amber-500 p-4 flex justify-between items-center text-white">
-        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="badge-dollar-sign"></i> Pasar (Jual Hasil)</h2>
+        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="badge-dollar-sign"></i> Pasar</h2>
         <button onclick="closeModal()" class="hover:bg-white/20 p-1 rounded-full"><i data-lucide="x"></i></button>
       </div>
-      <div id="market-content" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-        <!-- Injected via JS -->
-      </div>
+      <div id="market-content" class="p-4 space-y-3 max-h-[60vh] overflow-y-auto"></div>
     </div>
-
-    <!-- STORAGE MODAL -->
     <div id="storage-modal" class="hidden bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-100 modal-content">
       <div class="bg-slate-600 p-4 flex justify-between items-center text-white">
-        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="package"></i> Gudang Penyimpanan</h2>
+        <h2 class="font-bold text-lg flex items-center gap-2"><i data-lucide="package"></i> Gudang</h2>
         <button onclick="closeModal()" class="hover:bg-white/20 p-1 rounded-full"><i data-lucide="x"></i></button>
       </div>
       <div class="p-4 grid grid-cols-3 gap-3">
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center flex flex-col items-center">
-          <span class="text-3xl mb-1">🍼</span>
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Susu</span>
-          <span id="store-milk" class="text-lg font-black text-slate-700">0</span>
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+          <span class="text-3xl">🍼</span>
+          <p id="store-milk" class="text-lg font-black text-slate-700">0</p>
         </div>
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center flex flex-col items-center">
-          <span class="text-3xl mb-1">🥚</span>
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Telur</span>
-          <span id="store-egg" class="text-lg font-black text-slate-700">0</span>
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+          <span class="text-3xl">🥚</span>
+          <p id="store-egg" class="text-lg font-black text-slate-700">0</p>
         </div>
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center flex flex-col items-center">
-          <span class="text-3xl mb-1">🧶</span>
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Wol</span>
-          <span id="store-wool" class="text-lg font-black text-slate-700">0</span>
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
+          <span class="text-3xl">🧶</span>
+          <p id="store-wool" class="text-lg font-black text-slate-700">0</p>
         </div>
       </div>
-      <div class="p-4 pt-0 border-t border-slate-100 mt-2">
-        <button onclick="buyFeed()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95">
-          <i data-lucide="shopping-cart" class="w-4 h-4"></i> Beli Pakan (5 Koin / 5 Unit)
+      <div class="p-4 pt-0">
+        <button onclick="buyFeed()" class="w-full bg-green-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+           Beli Pakan (5 Koin)
         </button>
       </div>
     </div>
-
   </div>
 
   <script>
-    // --- Configuration & Assets ---
     const TILE_W = 64, TILE_H = 32, GRID = 8;
 
     const ITEMS = {
@@ -189,19 +193,18 @@
       sheep: { price: 400, prod: 'wool', rate: 30000, color: '#e5e7eb', label: 'Domba' }
     };
 
-    const MARKET = {
-      egg: 15, milk: 40, wool: 100, feed: 5
-    };
+    const MARKET = { egg: 15, milk: 40, wool: 100, feed: 5 };
 
     const TITLES = [
-      "Peternak Pemula", "Peternak Magang", "Pekerja Keras", 
-      "Peternak Ahli", "Juragan Muda", "Juragan Ternak", 
-      "Sultan Ladang", "Dewa Pertanian"
+      "Peternak Pemula", "Peternak Magang", "Pekerja Keras", "Peternak Ahli", 
+      "Juragan Muda", "Juragan Ternak", "Sultan Ladang", "Dewa Pertanian",
+      "Raja Panen", "Miliarder Desa", "Raja Peternakan", "Penguasa Agrikultur", "Legenda Peternak"
     ];
 
-    // Asset Gambar dari GitHub
+    // Daftar Gambar Barn sesuai urutan level (1-13)
+    const BARN_FILES = ['1.png', '2.png', '3.png', '4.png', '5.png', '6.png', '7.png', '8.png', '9.png', '10.png', '11.png', '12.png', '13.png'];
+
     const ASSETS = {
-      barn: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/barn.png',
       grass: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/grasskecil.png',
       river: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sungai.png',
       cowIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/sapi.png',
@@ -209,36 +212,24 @@
       milk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/kotak.png',
       skull: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/skull.png',
       fence: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/pagar.png',
-      henIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_idle.png', // Nama file diperbaiki (dengan _)
-      henWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_walk.png', // Nama file diperbaiki (dengan _)
+      henIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_idle.png',
+      henWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/hen_walk.png',
       egg: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/telur.png',
       sheepIdle: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/dombaidle.png',
       sheepWalk: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/domba_walk.png',
       wool: 'https://raw.githubusercontent.com/fauzanbunz/farmer/main/wol.png'
     };
-    const IMAGES = {};
 
-    // --- State Management ---
+    const IMAGES = { barns: [] };
+
     const state = {
-      coins: 500,
-      xp: 0,
-      level: 1,
-      feed: 10,
+      coins: 500, xp: 0, level: 1, feed: 10,
       inventory: { egg: 0, milk: 0, wool: 0 },
-      animals: [],
-      drops: [],
-      clouds: [],
-      stars: [],
-      rainDrops: [],
-      lastTime: 0,
-      timeOfDay: 0, // 0 to 1
-      weather: 'rain', // Kondisi cuaca ('clear' atau 'rain')
-      lastWeatherChange: 0, // Waktu terakhir ganti cuaca
-      lightningFlash: 0, // Intensitas kilatan petir (0 hingga 1)
-      comet: { active: false, x: 0, y: 0, vx: 0, vy: 0 } // State untuk komet
+      animals: [], drops: [], clouds: [], stars: [], rainDrops: [],
+      lastTime: 0, timeOfDay: 0, weather: 'clear', lastWeatherChange: 0, lightningFlash: 0,
+      comet: { active: false, x: 0, y: 0, vx: 0, vy: 0 }
     };
 
-    // --- Initialization ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
@@ -246,85 +237,79 @@
       lucide.createIcons();
       window.addEventListener('resize', resize);
       resize();
-      
-      // Inisialisasi waktu cuaca
       state.lastWeatherChange = performance.now();
-
-      // Setup Clouds & Stars
       generateEnvironment();
 
-      // Load Images
-      let loaded = 0;
+      let loadedCount = 0;
       const keys = Object.keys(ASSETS);
+      const totalImages = keys.length + BARN_FILES.length;
+
+      const onLoadComplete = () => {
+        loadedCount++;
+        if (loadedCount === totalImages) startGame();
+      };
+
       keys.forEach(key => {
         IMAGES[key] = new Image();
-        IMAGES[key].onload = () => {
-          loaded++;
-          if (loaded === keys.length) startGame();
-        };
-        IMAGES[key].onerror = () => {
-          loaded++;
-          if (loaded === keys.length) startGame();
-        };
+        IMAGES[key].onload = onLoadComplete;
+        IMAGES[key].onerror = onLoadComplete;
         IMAGES[key].src = ASSETS[key];
+      });
+
+      BARN_FILES.forEach((file, idx) => {
+        IMAGES.barns[idx] = new Image();
+        IMAGES.barns[idx].onload = onLoadComplete;
+        IMAGES.barns[idx].onerror = onLoadComplete;
+        IMAGES.barns[idx].src = `https://raw.githubusercontent.com/fauzanbunz/farmer/main/${file}`;
       });
     }
 
     function startGame() {
-      // Ubah posisi awal spawn sapi agar lebih ke tengah (menjauhi barn)
       spawnAnimal('cow', 5, 5); 
       updateUI();
       requestAnimationFrame(gameLoop);
     }
 
     function generateEnvironment() {
-      state.clouds = [];
-      for(let i=0; i<6; i++) {
-        state.clouds.push({
-          x: Math.random() * window.innerWidth,
-          y: 20 + Math.random() * 200,
-          scale: 0.5 + Math.random() * 0.8,
-          speed: 0.1 + Math.random() * 0.3
-        });
-      }
-      state.stars = [];
-      for(let i=0; i<150; i++) {
-        state.stars.push({
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * (window.innerHeight * 0.6), // Bintang kebanyakan di paruh atas
-          size: Math.random() * 1.5,
-          phase: Math.random() * Math.PI * 2,
-          speed: 0.001 + Math.random() * 0.003
-        });
-      }
-      // Generate Rintik Hujan
-      state.rainDrops = [];
-      for(let i=0; i<300; i++) {
-        state.rainDrops.push({
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * window.innerHeight,
-          l: Math.random() * 20 + 10, // panjang rintik
-          xs: -2 + Math.random() * 4, // kemiringan (angin)
-          ys: Math.random() * 15 + 15 // kecepatan jatuh
-        });
-      }
+      state.clouds = Array.from({ length: 6 }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: 20 + Math.random() * 200,
+        scale: 0.5 + Math.random() * 0.8,
+        speed: 0.1 + Math.random() * 0.3
+      }));
+      state.stars = Array.from({ length: 150 }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * (window.innerHeight * 0.6),
+        size: Math.random() * 1.5,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.001 + Math.random() * 0.003
+      }));
+      state.rainDrops = Array.from({ length: 300 }, () => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        l: Math.random() * 20 + 10,
+        xs: -2 + Math.random() * 4,
+        ys: Math.random() * 15 + 15
+      }));
     }
 
     function resize() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      generateEnvironment(); // Regenerate environment on resize to fit new width
+      generateEnvironment();
     }
 
-    // --- Modal & UI Logic ---
     function openModal(id) {
-      updateUI(); // Refresh content
+      updateUI();
       const backdrop = document.getElementById('modal-backdrop');
       backdrop.classList.remove('hidden');
       setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
-      
-      ['shop-modal', 'market-modal', 'storage-modal'].forEach(m => document.getElementById(m).classList.add('hidden'));
-      document.getElementById(id).classList.remove('hidden');
+      ['shop-modal', 'market-modal', 'storage-modal'].forEach(m => {
+        const modal = document.getElementById(m);
+        if (modal) modal.classList.add('hidden');
+      });
+      const targetModal = document.getElementById(id);
+      if (targetModal) targetModal.classList.remove('hidden');
     }
 
     function closeModal() {
@@ -346,41 +331,58 @@
       }, 2500);
     }
 
+    function triggerLevelUpSplash(level) {
+      const splash = document.getElementById('levelup-splash');
+      const detail = document.getElementById('levelup-detail');
+      const titleText = document.getElementById('levelup-title-text');
+      
+      detail.innerText = `SEKARANG LEVEL ${level}`;
+      titleText.innerText = TITLES[Math.min(level - 1, TITLES.length - 1)];
+      
+      splash.classList.remove('hidden');
+      setTimeout(() => splash.classList.add('opacity-100'), 10);
+      
+      // Sembunyikan setelah 5 detik
+      setTimeout(() => {
+        splash.classList.replace('opacity-100', 'opacity-0');
+        setTimeout(() => splash.classList.add('hidden'), 700);
+      }, 5000);
+    }
+
     function addFloatingText(text, x, y, color = '#ffffff') {
       const div = document.createElement('div');
       div.className = 'absolute font-black text-xl pointer-events-none float-msg z-[200]';
-      div.style.left = `${x}px`;
-      div.style.top = `${y}px`;
-      div.style.color = color;
+      div.style.left = `${x}px`; div.style.top = `${y}px`; div.style.color = color;
       div.innerText = text;
       document.body.appendChild(div);
       setTimeout(() => div.remove(), 1200);
     }
 
-    // --- Game Logic Functions ---
     function spawnAnimal(type, x, y) {
       state.animals.push({
-        type, x, y,
-        targetX: x, targetY: y,
-        idleUntil: 0,
-        hunger: 1.0,
-        lastProd: performance.now(),
-        hop: 0,
-        id: Math.random(),
-        isDead: false,
-        deathTime: 0
+        type, x, y, targetX: x, targetY: y, idleUntil: 0, hunger: 1.0,
+        lastProd: performance.now(), hop: 0, id: Math.random(), isDead: false, deathTime: 0
       });
+      updateUI();
     }
 
     function addXP(amount) {
+      if (state.level >= 13) return;
       state.xp += amount;
       let xpReq = state.level * 100;
       
-      // Cek Naik Level
-      if (state.xp >= xpReq) {
+      let leveledUp = false;
+      while (state.xp >= xpReq && state.level < 13) {
         state.level++;
-        state.xp -= xpReq; // Sisa XP dibawa ke level selanjutnya
-        notify(`🎉 Naik Level! Anda sekarang Level ${state.level}`, 'success');
+        state.xp -= xpReq;
+        xpReq = state.level * 100;
+        if (state.level === 13) state.xp = 0;
+        leveledUp = true;
+      }
+
+      if (leveledUp) {
+        triggerLevelUpSplash(state.level);
+        notify(`🎉 Level Up! Sekarang Level ${state.level}`, 'success');
       }
       updateUI();
     }
@@ -388,7 +390,6 @@
     function buyAnimal(type) {
       if (state.coins >= ITEMS[type].price) {
         state.coins -= ITEMS[type].price;
-        // Pastikan hewan baru yang dibeli juga spawn di area yang aman (koordinat 3.5 hingga 7.5)
         spawnAnimal(type, Math.random() * 4 + 3.5, Math.random() * 4 + 3.5);
         updateUI();
         notify(`Membeli ${ITEMS[type].label}!`, 'success');
@@ -401,7 +402,7 @@
       if (state.inventory[key] > 0) {
         state.inventory[key]--;
         state.coins += MARKET[key];
-        addXP(20); // Tambah XP saat menjual barang
+        addXP(20);
         updateUI();
       }
     }
@@ -418,16 +419,13 @@
     }
 
     function feedAll() {
-      // Hanya hewan yang lapar dan masih HIDUP yang bisa diberi makan
-      const hungryAnimals = state.animals.filter(a => a.hunger < 0.9 && !a.isDead);
-      if (hungryAnimals.length === 0) return notify("Semua hewan sudah kenyang!");
-      
-      const feedNeeded = hungryAnimals.length;
-      if (state.feed >= feedNeeded) {
-        state.feed -= feedNeeded;
-        hungryAnimals.forEach(a => a.hunger = 1.0);
-        addXP(5 * feedNeeded); // Tambah XP saat memberi makan
-        notify(`Berhasil memberi makan ${feedNeeded} hewan!`, 'success');
+      const hungry = state.animals.filter(a => a.hunger < 0.9 && !a.isDead);
+      if (hungry.length === 0) return notify("Semua hewan sudah kenyang!");
+      if (state.feed >= hungry.length) {
+        state.feed -= hungry.length;
+        hungry.forEach(a => a.hunger = 1.0);
+        addXP(5 * hungry.length);
+        notify(`Memberi makan ${hungry.length} hewan!`, 'success');
         updateUI();
       } else {
         notify("Stok pakan tidak cukup!", "error");
@@ -435,295 +433,154 @@
     }
 
     function updateUI() {
-      // Top Bar Stats
-      document.getElementById('coin-count').innerText = Math.floor(state.coins);
-      document.getElementById('feed-count').innerText = state.feed;
+      const safeEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = val;
+      };
+
+      safeEl('coin-count', Math.floor(state.coins));
+      safeEl('feed-count', state.feed);
+      safeEl('level-badge', `LV ${state.level}`);
+      safeEl('player-title', TITLES[Math.min(state.level - 1, TITLES.length - 1)]);
       
-      // XP & Profile
       const xpReq = state.level * 100;
-      document.getElementById('xp-bar').style.width = `${(state.xp / xpReq) * 100}%`;
-      document.getElementById('xp-text').innerText = `${state.xp}/${xpReq}`;
-      document.getElementById('level-badge').innerText = `LV ${state.level}`;
+      const bar = document.getElementById('xp-bar');
+      const txt = document.getElementById('xp-text');
+      if (state.level >= 13) {
+        if(bar) bar.style.width = '100%';
+        if(txt) txt.innerText = 'MAX';
+      } else {
+        if(bar) bar.style.width = `${(state.xp / xpReq) * 100}%`;
+        if(txt) txt.innerText = `${state.xp}/${xpReq}`;
+      }
       
-      // Penentuan Gelar
-      const titleIndex = Math.min(state.level - 1, TITLES.length - 1);
-      document.getElementById('player-title').innerText = TITLES[titleIndex];
+      const aliveCount = state.animals.filter(a => !a.isDead).length;
+      safeEl('animal-count', aliveCount);
 
-      // Update Modal Contents
-      const shopContent = document.getElementById('shop-content');
-      shopContent.innerHTML = Object.entries(ITEMS).map(([key, item]) => `
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl shadow-sm border border-slate-100">
-              ${key === 'chicken' ? '🐔' : key === 'cow' ? '🐄' : '🐑'}
+      // Render Modal Shop
+      const shop = document.getElementById('shop-content');
+      if (shop) {
+        shop.innerHTML = Object.entries(ITEMS).map(([key, item]) => `
+          <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">
+                ${key === 'chicken' ? '🐔' : key === 'cow' ? '🐄' : '🐑'}
+              </div>
+              <div><p class="font-bold text-slate-800">${item.label}</p><p class="text-xs font-bold text-amber-600">${item.price} Koin</p></div>
             </div>
-            <div>
-              <p class="font-bold text-slate-800">${item.label}</p>
-              <p class="text-xs font-bold text-amber-600 flex items-center gap-1">
-                <i data-lucide="coins" class="w-3 h-3"></i> ${item.price}
-              </p>
-            </div>
-          </div>
-          <button onclick="buyAnimal('${key}')" class="bg-blue-500 hover:bg-blue-600 text-white p-2.5 rounded-xl shadow-md active:scale-90 transition-transform">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-          </button>
-        </div>
-      `).join('');
+            <button onclick="buyAnimal('${key}')" class="bg-blue-500 text-white p-2.5 rounded-xl transition-transform active:scale-90"><i data-lucide="plus" class="w-5 h-5"></i></button>
+          </div>`).join('');
+      }
 
-      const marketContent = document.getElementById('market-content');
-      marketContent.innerHTML = Object.entries(state.inventory).map(([key, count]) => `
-        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border ${count > 0 ? 'border-amber-200' : 'border-slate-100'}">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl shadow-sm border border-slate-100">
-              ${key === 'egg' ? '🥚' : key === 'milk' ? '🍼' : '🧶'}
+      // Render Modal Market
+      const market = document.getElementById('market-content');
+      if (market) {
+        market.innerHTML = Object.entries(state.inventory).map(([key, count]) => `
+          <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border ${count > 0 ? 'border-amber-200' : 'border-slate-100'}">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-2xl">
+                ${key === 'egg' ? '🥚' : key === 'milk' ? '🍼' : '🧶'}
+              </div>
+              <div><p class="font-bold text-slate-800 capitalize">${key}</p><p class="text-xs">Stok: ${count}</p></div>
             </div>
-            <div>
-              <p class="font-bold text-slate-800 capitalize">${key === 'egg' ? 'Telur' : key === 'milk' ? 'Susu' : 'Wol'}</p>
-              <p class="text-xs text-slate-500 font-medium">Stok: <span class="${count > 0 ? 'text-amber-600 font-bold' : ''}">${count}</span></p>
-            </div>
-          </div>
-          <button onclick="sellItem('${key}')" ${count <= 0 ? 'disabled' : ''} class="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md active:scale-95 transition-all">
-            Jual +$${MARKET[key]}
-          </button>
-        </div>
-      `).join('');
+            <button onclick="sellItem('${key}')" ${count <= 0 ? 'disabled' : ''} class="bg-amber-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs disabled:opacity-30">Jual +$${MARKET[key]}</button>
+          </div>`).join('');
+      }
 
-      // Storage Content
-      document.getElementById('store-milk').innerText = state.inventory.milk;
-      document.getElementById('store-egg').innerText = state.inventory.egg;
-      document.getElementById('store-wool').innerText = state.inventory.wool;
-
+      safeEl('store-milk', state.inventory.milk);
+      safeEl('store-egg', state.inventory.egg);
+      safeEl('store-wool', state.inventory.wool);
       lucide.createIcons();
     }
 
-    // --- Rendering Logic ---
     function isoToScreen(x, y, z) {
-      const offsetX = canvas.width / 2;
-      const offsetY = canvas.height / 2 - (GRID * TILE_H) / 2 + 100;
-      return {
-        x: (x - y) * (TILE_W / 2) + offsetX,
-        y: (x + y) * (TILE_H / 2) - z + offsetY
-      };
-    }
-
-    function drawCube(x, y, z, w, l, h, colors) {
-      const p1 = isoToScreen(x, y, z + h);
-      const p2 = isoToScreen(x + w, y, z + h);
-      const p3 = isoToScreen(x + w, y + l, z + h);
-      const p4 = isoToScreen(x, y + l, z + h);
-      const p5 = isoToScreen(x, y + l, z);
-      const p6 = isoToScreen(x + w, y + l, z);
-      const p7 = isoToScreen(x + w, y, z);
-
-      // Shadow selalu dirender di atas tanah (z = 0)
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.beginPath();
-      const s0 = isoToScreen(x,y,0); const s1 = isoToScreen(x+w,y,0); const s2 = isoToScreen(x+w,y+l,0); const s3 = isoToScreen(x,y+l,0);
-      ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.lineTo(s3.x, s3.y);
-      ctx.fill();
-
-      ctx.fillStyle = colors.top;
-      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.fill();
-      ctx.fillStyle = colors.left;
-      ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p6.x, p6.y); ctx.lineTo(p5.x, p5.y); ctx.fill();
-      ctx.fillStyle = colors.right;
-      ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p7.x, p7.y); ctx.lineTo(p6.x, p6.y); ctx.fill();
+      const ox = canvas.width / 2, oy = canvas.height / 2 - (GRID * TILE_H) / 2 + 100;
+      return { x: (x - y) * (TILE_W / 2) + ox, y: (x + y) * (TILE_H / 2) - z + oy };
     }
 
     function gameLoop(time) {
       const dt = time - state.lastTime;
       state.lastTime = time;
 
-      // Update Time (2 menit siklus siang/malam)
       state.timeOfDay = (time / 120000) % 1; 
       const isNight = state.timeOfDay > 0.6;
       document.body.classList.toggle('night-mode', isNight);
 
-      // --- LOGIKA CUACA (Hujan/Cerah) ---
-      // Ganti cuaca setiap 30 detik
       if (time - state.lastWeatherChange > 30000) {
         state.lastWeatherChange = time;
         state.weather = state.weather === 'rain' ? 'clear' : 'rain';
       }
-
-      // Mengubah background body menjadi lebih mendung jika hujan
       document.body.classList.toggle('rain-mode', state.weather === 'rain');
 
-      // Peluang muncul petir jika sedang hujan
-      if (state.weather === 'rain') {
-        if (Math.random() < 0.005) { // Sekitar 0.5% peluang per frame
-          state.lightningFlash = 0.8 + Math.random() * 0.2; // Opacity kilatan antara 0.8 - 1.0
-        }
-      }
-      // Memudarkan kilatan petir secara bertahap
+      if (state.weather === 'rain' && Math.random() < 0.005) state.lightningFlash = 0.8;
       state.lightningFlash = Math.max(0, state.lightningFlash - 0.05);
 
-      // Clear Canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // ==========================================
-      // 0. RENDER BACKGROUND ENVIRONMENT
-      // ==========================================
-      
-      // Gambar Bintang (jika malam dan tidak hujan, atau redup saat hujan)
+      // Render Bintang & Komet
       if (isNight) {
-        ctx.fillStyle = '#ffffff';
-        state.stars.forEach(star => {
-          let alpha = 0.1 + Math.abs(Math.sin(time * star.speed + star.phase)) * 0.9;
-          if (state.weather === 'rain') alpha *= 0.2; // Redupkan bintang saat hujan
-          ctx.globalAlpha = alpha;
-          ctx.beginPath();
-          ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-          ctx.fill();
+        state.stars.forEach(s => {
+          ctx.globalAlpha = 0.1 + Math.abs(Math.sin(time * s.speed + s.phase)) * 0.9 * (state.weather === 'rain' ? 0.2 : 1);
+          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI*2); ctx.fill();
         });
-        ctx.globalAlpha = 1.0; // Reset
-
-        // --- Logika & Render Komet (Bintang Jatuh) ---
-        // Peluang muncul 0.2% per frame saat malam hari
-        if (!state.comet.active && Math.random() < 0.002) { 
-          state.comet.active = true;
-          state.comet.x = canvas.width + 50; // Mulai dari tepi kanan layar
-          state.comet.y = Math.random() * (canvas.height / 3); // Di sepertiga atas langit
-          state.comet.vx = -4 - Math.random() * 6; // Kecepatan gerak ke kiri
-          state.comet.vy = 2 + Math.random() * 4;  // Kecepatan gerak ke bawah
+        ctx.globalAlpha = 1;
+        if (!state.comet.active && Math.random() < 0.002) {
+          state.comet = { active: true, x: canvas.width+50, y: Math.random()*canvas.height/3, vx: -5, vy: 3 };
         }
-
         if (state.comet.active) {
-          state.comet.x += state.comet.vx;
-          state.comet.y += state.comet.vy;
-
-          const tailLength = 15; // Jarak/panjang ekor (multiplier)
-          const tailX = state.comet.x - state.comet.vx * tailLength;
-          const tailY = state.comet.y - state.comet.vy * tailLength;
-
-          ctx.save();
-          // Komet terlihat redup jika terhalang mendung/hujan
-          ctx.globalAlpha = (state.weather === 'rain') ? 0.3 : 1.0; 
-
-          // Gambar Ekor (Gradien Transparan)
-          const grad = ctx.createLinearGradient(state.comet.x, state.comet.y, tailX, tailY);
-          grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-          grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-          
-          ctx.strokeStyle = grad;
-          ctx.lineWidth = 3;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(state.comet.x, state.comet.y);
-          ctx.lineTo(tailX, tailY);
-          ctx.stroke();
-
-          // Gambar Kepala Komet (Bercahaya)
-          ctx.fillStyle = '#ffffff';
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = '#ffffff';
-          ctx.beginPath();
-          ctx.arc(state.comet.x, state.comet.y, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-
-          // Nonaktifkan jika sudah jauh keluar layar
-          if (state.comet.x < -200 || state.comet.y > canvas.height + 200) {
-            state.comet.active = false;
-          }
+          state.comet.x += state.comet.vx; state.comet.y += state.comet.vy;
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(state.comet.x, state.comet.y);
+          ctx.lineTo(state.comet.x - state.comet.vx*10, state.comet.y - state.comet.vy*10); ctx.stroke();
+          if(state.comet.x < -200) state.comet.active = false;
         }
       }
 
-      // Gambar Awan Looping Transparan
-      // Warna awan menjadi lebih abu-abu jika sedang hujan mendung
-      if (state.weather === 'rain') {
-        ctx.fillStyle = 'rgba(112, 128, 144, 0.6)';
-      } else {
-        ctx.fillStyle = isNight ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)';
-      }
-
-      state.clouds.forEach(c => {
-        c.x += c.speed;
-        if(c.x > canvas.width + 150) c.x = -150; // Looping
-        
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 40 * c.scale, 0, Math.PI*2);
-        ctx.arc(c.x + 30 * c.scale, c.y - 20 * c.scale, 35 * c.scale, 0, Math.PI*2);
-        ctx.arc(c.x + 60 * c.scale, c.y, 30 * c.scale, 0, Math.PI*2);
-        ctx.fill();
-      });
-
-      // ==========================================
-      // 1. RENDER LAPISAN TANAH (GRASS & RIVER)
-      // ==========================================
+      // Tanah & Sungai
       for (let sum = 0; sum <= GRID * 2; sum++) {
         for (let i = 0; i <= GRID; i++) {
           let j = sum - i;
           if (j >= 0 && j <= GRID) {
-            const isGrass = (i >= 0 && i < GRID && j >= 0 && j < GRID);
+            const isGrass = (i < GRID && j < GRID);
             const img = isGrass ? IMAGES.grass : IMAGES.river;
-            
             if (img && img.width > 0) {
               const screen = isoToScreen(i, j, 0);
-              const drawH = TILE_W * (img.height / img.width); 
-              ctx.drawImage(img, screen.x - TILE_W/2, screen.y - TILE_H/2, TILE_W, drawH);
+              ctx.drawImage(img, screen.x - TILE_W/2, screen.y - TILE_H/2, TILE_W, TILE_W * (img.height/img.width));
             }
           }
         }
       }
 
-      // ==========================================
-      // 2. LOGIKA ENTITAS & LAPISAN OBJEK (SAPI, BARN, ITEM)
-      // ==========================================
+      // Entities
       const renderList = [];
-
       renderList.push({ type: 'barn', x: 1.5, y: 1.5, depth: 4.5 });
 
-      // Animals
+      // Animals Logic
       state.animals.forEach(a => {
-        // Logika jalan dan produksi hanya berlaku jika hewan MASIH HIDUP
         if (!a.isDead) {
-          const dx = a.targetX - a.x, dy = a.targetY - a.y;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          
+          const dx = a.targetX - a.x, dy = a.targetY - a.y, dist = Math.sqrt(dx*dx + dy*dy);
           if (dist < 0.1) {
             if (time > a.idleUntil) {
-              // Batasi koordinat target jalan agar tidak menembus barn (Barn berada di area 0 - 3)
-              a.targetX = Math.random() * 4 + 3.5;
-              a.targetY = Math.random() * 4 + 3.5;
-              // Perlama waktu idle (diam) sapi menjadi 5 hingga 13 detik
+              a.targetX = Math.random() * 4 + 3.5; a.targetY = Math.random() * 4 + 3.5;
               a.idleUntil = time + 5000 + Math.random() * 8000;
-            } else {
-              a.x = a.targetX;
-              a.y = a.targetY;
-            }
+            } else { a.x = a.targetX; a.y = a.targetY; }
           } else {
-            // Kurangi sedikit kecepatan jalan sapi agar lebih santai
-            a.x += (dx/dist) * 0.008;
-            a.y += (dy/dist) * 0.008;
+            a.x += (dx/dist) * 0.008; a.y += (dy/dist) * 0.008;
           }
-          
           a.hop = (dist >= 0.1) ? Math.abs(Math.sin(time/200)) * 0.2 : 0;
-          
-          // Health (kelaparan) berkurang lebih cepat saat hujan (2 menit vs 5 menit)
-          const hungerDuration = (state.weather === 'rain') ? 120000 : 300000;
-          a.hunger = Math.max(0, a.hunger - (dt / hungerDuration));
+          const hungerRate = (state.weather === 'rain') ? 120000 : 300000;
+          a.hunger = Math.max(0, a.hunger - (dt / hungerRate));
 
-          // Cek Kematian karena kelaparan
           if (a.hunger <= 0) {
-            a.isDead = true;
-            a.deathTime = time;
-            notify(`Seekor ${ITEMS[a.type].label} mati kelaparan!`, 'error');
-          } 
-          // Cek Produksi
-          else if (time - a.lastProd > ITEMS[a.type].rate) {
+            a.isDead = true; a.deathTime = time; updateUI();
+            notify(`${ITEMS[a.type].label} mati kelaparan!`, 'error');
+          } else if (time - a.lastProd > ITEMS[a.type].rate) {
             a.lastProd = time;
-            state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, z: 5, bounce: 0, id: Math.random() });
+            state.drops.push({ type: ITEMS[a.type].prod, x: a.x, y: a.y, bounce: 0 });
           }
         }
-
         renderList.push({ type: 'animal', data: a, depth: a.x + a.y });
       });
 
-      // Hapus bangkai dari state jika sudah lewat 65 detik (60 detik menunggu + 5 detik animasi pudar)
-      state.animals = state.animals.filter(a => !(a.isDead && time - a.deathTime > 65000));
-
-      // Drops
       state.drops.forEach(d => {
         d.bounce = Math.sin(time/300) * 2;
         renderList.push({ type: 'drop', data: d, depth: d.x + d.y });
@@ -731,227 +588,74 @@
 
       renderList.sort((a,b) => a.depth - b.depth);
 
-      // Menggambar entitas
       renderList.forEach(obj => {
         if (obj.type === 'barn') {
-          if (IMAGES.barn && IMAGES.barn.width > 0) {
-             const screen = isoToScreen(obj.x, obj.y, 0);
-             ctx.drawImage(IMAGES.barn, screen.x - 90, screen.y - 140, 180, 180); 
+          const bIdx = Math.min(state.level - 1, 12);
+          const bImg = IMAGES.barns[bIdx];
+          if (bImg && bImg.width > 0) {
+            const s = isoToScreen(obj.x, obj.y, 0);
+            ctx.drawImage(bImg, s.x - 90, s.y - 140, 180, 180);
           }
-        }
-        else if (obj.type === 'animal') {
+        } else if (obj.type === 'animal') {
           const a = obj.data;
-          
+          const sG = isoToScreen(a.x, a.y, 0);
+          ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(sG.x, sG.y, a.type === 'cow' ? 22 : 12, a.type === 'cow' ? 11 : 6, 0, 0, Math.PI*2); ctx.fill();
+
           if (a.isDead) {
-            // RENDERING BANGKAI (SKULL)
-            const timeDead = time - a.deathTime;
-            let alpha = 1.0;
-            
-            // Animasi memudar perlahan (fade out) di 5 detik terakhir sebelum 65 detik (antara ms 60000 ke 65000)
-            if (timeDead > 60000) {
-              alpha = Math.max(0, 1.0 - ((timeDead - 60000) / 5000));
-            }
-            
-            ctx.save();
-            ctx.globalAlpha = alpha; // Set transparansi untuk memudar
-            
-            const screenGround = isoToScreen(a.x, a.y, 0);
-            
-            // Bayangan bangkai tetap ada
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-            ctx.beginPath();
-            ctx.ellipse(screenGround.x, screenGround.y, 22, 11, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Gambar Tengkorak
-            if (IMAGES.skull) {
-              ctx.drawImage(IMAGES.skull, screenGround.x - 20, screenGround.y - 30, 40, 40);
-            }
-            
-            ctx.restore();
-
+            const fade = Math.max(0, 1 - (time - a.deathTime - 60000)/5000);
+            ctx.globalAlpha = Math.min(1, fade);
+            if(IMAGES.skull) ctx.drawImage(IMAGES.skull, sG.x - 20, sG.y - 30, 40, 40);
+            ctx.globalAlpha = 1;
           } else {
-            // RENDERING HEWAN HIDUP
-            const screen = isoToScreen(a.x, a.y, a.hop * 10);
-            
-            if (a.type === 'cow' && IMAGES.cowIdle && IMAGES.cowWalk) {
-              // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah sapi
-              const screenGround = isoToScreen(a.x, a.y, 0);
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-              ctx.beginPath();
-              ctx.ellipse(screenGround.x, screenGround.y, 22, 11, 0, 0, Math.PI * 2);
-              ctx.fill();
+            const s = isoToScreen(a.x, a.y, a.hop * 10);
+            const isWalk = Math.abs(a.targetX - a.x) > 0.01;
+            let img, fSz = 300, frames = 2, drawSz = 50;
 
-              const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
-              const frames = isMoving ? 2 : 4;
-              const frameIdx = Math.floor(time / 200) % frames;
-              const img = isMoving ? IMAGES.cowWalk : IMAGES.cowIdle;
-              
-              ctx.save();
-              if (a.targetX > a.x) { 
-                ctx.translate(screen.x, screen.y);
-                ctx.scale(-1, 1);
-                ctx.drawImage(img, frameIdx * 500, 0, 500, 500, -40, -60, 80, 80);
-              } else {
-                ctx.drawImage(img, frameIdx * 500, 0, 500, 500, screen.x - 40, screen.y - 60, 80, 80);
-              }
-              ctx.restore();
-              
-            } else if (a.type === 'chicken' && IMAGES.henIdle && IMAGES.henWalk) {
-              // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah ayam
-              const screenGround = isoToScreen(a.x, a.y, 0);
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-              ctx.beginPath();
-              ctx.ellipse(screenGround.x, screenGround.y, 12, 6, 0, 0, Math.PI * 2);
-              ctx.fill();
+            if (a.type === 'cow') { img = isWalk ? IMAGES.cowWalk : IMAGES.cowIdle; fSz = 500; frames = isWalk ? 2 : 4; drawSz = 80; }
+            else if (a.type === 'chicken') { img = isWalk ? IMAGES.henWalk : IMAGES.henIdle; }
+            else { img = isWalk ? IMAGES.sheepWalk : IMAGES.sheepIdle; drawSz = 70; }
 
-              const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
-              const frames = 2; // Animasi ayam diset ke 2 frame
-              const frameIdx = Math.floor(time / 150) % frames; // Animasi ayam sedikit lebih cepat (150ms)
-              const img = isMoving ? IMAGES.henWalk : IMAGES.henIdle;
-              
+            if (img && img.width > 0) {
+              const fIdx = Math.floor(time / 150) % frames;
               ctx.save();
-              // Jika ayam berjalan ke kanan, balikkan (flip) sprite-nya
-              if (a.targetX > a.x) { 
-                ctx.translate(screen.x, screen.y);
-                ctx.scale(-1, 1);
-                // Ukuran frame gambar 300x300, dirender dengan ukuran 50x50 agar pas
-                ctx.drawImage(img, frameIdx * 300, 0, 300, 300, -25, -35, 50, 50);
-              } else {
-                ctx.drawImage(img, frameIdx * 300, 0, 300, 300, screen.x - 25, screen.y - 35, 50, 50);
-              }
+              if (a.targetX > a.x) { ctx.translate(s.x, s.y); ctx.scale(-1, 1); ctx.drawImage(img, fIdx*fSz, 0, fSz, fSz, -drawSz/2, -drawSz*0.75, drawSz, drawSz); }
+              else { ctx.drawImage(img, fIdx*fSz, 0, fSz, fSz, s.x - drawSz/2, s.y - drawSz*0.75, drawSz, drawSz); }
               ctx.restore();
-              
-            } else if (a.type === 'sheep' && IMAGES.sheepIdle && IMAGES.sheepWalk) {
-              // Tambahkan bayangan (shadow) bentuk oval isometrik di bawah domba
-              const screenGround = isoToScreen(a.x, a.y, 0);
-              ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-              ctx.beginPath();
-              ctx.ellipse(screenGround.x, screenGround.y, 18, 9, 0, 0, Math.PI * 2);
-              ctx.fill();
-
-              const isMoving = Math.abs(a.targetX - a.x) > 0.01 || Math.abs(a.targetY - a.y) > 0.01;
-              const frames = 2; // Animasi domba diset ke 2 frame
-              const frameIdx = Math.floor(time / 200) % frames;
-              const img = isMoving ? IMAGES.sheepWalk : IMAGES.sheepIdle;
-              
-              ctx.save();
-              // Jika domba berjalan ke kanan, balikkan (flip) sprite-nya
-              if (a.targetX > a.x) { 
-                ctx.translate(screen.x, screen.y);
-                ctx.scale(-1, 1);
-                // Ukuran frame gambar 300x300, dirender dengan ukuran 70x70
-                ctx.drawImage(img, frameIdx * 300, 0, 300, 300, -35, -50, 70, 70);
-              } else {
-                ctx.drawImage(img, frameIdx * 300, 0, 300, 300, screen.x - 35, screen.y - 50, 70, 70);
-              }
-              ctx.restore();
-            } else {
-              const sz = a.type === 'chicken' ? 0.4 : 0.7;
-              drawCube(a.x - sz/2, a.y - sz/2, a.hop * 10, sz, sz, sz, { top: ITEMS[a.type].color, left: '#ccc', right: '#bbb' });
             }
-
-            // Render Bar Kelaparan hanya saat hewan hidup
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.fillRect(screen.x - 10, screen.y - 40, 20, 3);
-            ctx.fillStyle = a.hunger > 0.3 ? '#22c55e' : '#ef4444';
-            ctx.fillRect(screen.x - 10, screen.y - 40, 20 * a.hunger, 3);
+            // Hunger Bar
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(s.x - 10, s.y - drawSz*0.8, 20, 3);
+            ctx.fillStyle = a.hunger > 0.3 ? '#22c55e' : '#ef4444'; ctx.fillRect(s.x - 10, s.y - drawSz*0.8, 20*a.hunger, 3);
           }
-          
         } else if (obj.type === 'drop') {
-          const d = obj.data;
-          const screen = isoToScreen(d.x, d.y, d.bounce * 5); 
-          
-          if (d.type === 'milk' && IMAGES.milk) {
-            // Tambahkan bayangan bentuk oval isometrik di bawah barang (susu)
-            const screenGround = isoToScreen(d.x, d.y, 0);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.beginPath();
-            ctx.ellipse(screenGround.x, screenGround.y, 12, 6, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.drawImage(IMAGES.milk, screen.x - 15, screen.y - 20, 30, 30);
-          } else if (d.type === 'egg' && IMAGES.egg) {
-            // Tambahkan bayangan bentuk oval isometrik di bawah telur
-            const screenGround = isoToScreen(d.x, d.y, 0);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.beginPath();
-            ctx.ellipse(screenGround.x, screenGround.y, 10, 5, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Render gambar telur (ukurannya sedikit lebih kecil dari susu)
-            ctx.drawImage(IMAGES.egg, screen.x - 12, screen.y - 15, 24, 24);
-          } else if (d.type === 'wool' && IMAGES.wool) {
-            // Tambahkan bayangan bentuk oval isometrik di bawah wol
-            const screenGround = isoToScreen(d.x, d.y, 0);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-            ctx.beginPath();
-            ctx.ellipse(screenGround.x, screenGround.y, 14, 7, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Render gambar wol
-            ctx.drawImage(IMAGES.wool, screen.x - 14, screen.y - 18, 28, 28);
-          } else {
-            // Fallback jika gambar gagal dimuat
-            const color = d.type === 'egg' ? { top: '#fff', left: '#eee', right: '#ddd' } : { top: '#f1f5f9', left: '#e2e8f0', right: '#cbd5e1' };
-            drawCube(d.x - 0.2, d.y - 0.2, d.bounce * 5, 0.4, 0.4, 0.4, color);
-          }
+          const d = obj.data, sG = isoToScreen(d.x, d.y, 0), s = isoToScreen(d.x, d.y, d.bounce+5);
+          ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(sG.x, sG.y, 10, 5, 0, 0, Math.PI*2); ctx.fill();
+          const img = d.type === 'milk' ? IMAGES.milk : (d.type === 'egg' ? IMAGES.egg : IMAGES.wool);
+          if(img) ctx.drawImage(img, s.x - 12, s.y - 15, 24, 24);
         }
       });
 
-      // ==========================================
-      // 3. RENDER EFEK CUACA (HUJAN & PETIR)
-      // ==========================================
-      
-      // Render Rintik Hujan
+      // Rain & Lightning
       if (state.weather === 'rain') {
-        ctx.strokeStyle = 'rgba(173, 216, 230, 0.5)'; // Biru pucat transparan
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        state.rainDrops.forEach(drop => {
-          // Update posisi rintik
-          drop.x += drop.xs;
-          drop.y += drop.ys;
-          
-          // Reset jika jatuh melewati batas bawah layar
-          if (drop.y > canvas.height) {
-            drop.x = Math.random() * canvas.width;
-            drop.y = -drop.l;
-          }
-          if (drop.x > canvas.width) drop.x = 0;
-          if (drop.x < 0) drop.x = canvas.width;
-          
-          ctx.moveTo(drop.x, drop.y);
-          ctx.lineTo(drop.x + drop.xs, drop.y + drop.l);
+        ctx.strokeStyle = 'rgba(173,216,230,0.4)'; ctx.lineWidth = 1; ctx.beginPath();
+        state.rainDrops.forEach(r => {
+          r.x += r.xs; r.y += r.ys; if(r.y > canvas.height) { r.y = -20; r.x = Math.random()*canvas.width; }
+          ctx.moveTo(r.x, r.y); ctx.lineTo(r.x+r.xs, r.y+r.l);
         });
         ctx.stroke();
       }
-
-      // Render Kilatan Petir (Fill Putih Layar Penuh Transparan)
-      if (state.lightningFlash > 0) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${state.lightningFlash})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
+      if (state.lightningFlash > 0) { ctx.fillStyle = `rgba(255,255,255,${state.lightningFlash})`; ctx.fillRect(0,0,canvas.width,canvas.height); }
 
       requestAnimationFrame(gameLoop);
     }
 
-    // --- Input Interaction ---
     canvas.addEventListener('click', (e) => {
-      // Cek apakah user sedang menekan area di belakang modal terbuka
       if (!document.getElementById('modal-backdrop').classList.contains('hidden')) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-
-      let collected = false;
+      const rect = canvas.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      let col = false;
       state.drops = state.drops.filter(d => {
-        const screen = isoToScreen(d.x, d.y, 5 + d.bounce);
-        const dist = Math.sqrt((mx - screen.x)**2 + (my - screen.y)**2);
-        if (dist < 30 && !collected) {
-          collected = true;
-          state.inventory[d.type]++;
-          addXP(10); // Menambah XP saat mengumpulkan hasil!
+        const s = isoToScreen(d.x, d.y, 10);
+        if (Math.sqrt((mx-s.x)**2 + (my-s.y)**2) < 30 && !col) {
+          col = true; state.inventory[d.type]++; addXP(10);
           addFloatingText(`+1 ${d.type}`, mx, my, '#3b82f6');
           return false;
         }
@@ -959,7 +663,6 @@
       });
     });
 
-    // Start
     window.onload = init;
   </script>
 </body>
